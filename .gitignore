@@ -28,3 +28,6 @@ Thumbs.db
 # Test coverage
 coverage/
 .nyc_output/
+
+# Local agent state (per-project, never committed)
+.modex/

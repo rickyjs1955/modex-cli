@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 
+import { runAgentsCreate, runAgentsList } from './commands/agents.js';
 import { isUserFacingError, runFeed } from './commands/feed.js';
 
 export function buildProgram(): Command {
@@ -7,17 +8,37 @@ export function buildProgram(): Command {
   program
     .name('modex')
     .description('Author SKILLS.md from a corpus on your own machine.')
-    .version('0.0.0');
+    .version('0.1.0');
 
   program
     .command('feed')
     .description(
-      'Extract candidate skills from one .txt or .md file and write SKILLS.md to stdout.',
+      'Extract skills from one .txt or .md file, merge into the agent\'s skills.md, and append a provenance entry.',
     )
+    .argument('<agent-id>', 'UUIDv7 of the target agent (see `modex agents list`)')
     .argument('<file>', 'Path to a .txt or .md file')
     .option('--model <id>', 'Anthropic model id to use (default: Claude Haiku 4.5)')
-    .action(async (file: string, opts: { model?: string }) => {
-      await runFeed(file, { model: opts.model });
+    .action(async (agentId: string, file: string, opts: { model?: string }) => {
+      await runFeed(agentId, file, { model: opts.model });
+    });
+
+  const agents = program
+    .command('agents')
+    .description('Manage local agents stored under .modex/');
+
+  agents
+    .command('create')
+    .description('Create a new agent under .modex/<uuid7>/.')
+    .option('--name <name>', 'Human-readable label for this agent (optional)')
+    .action(async (opts: { name?: string }) => {
+      await runAgentsCreate({ name: opts.name });
+    });
+
+  agents
+    .command('list')
+    .description('List all agents in this directory.')
+    .action(async () => {
+      await runAgentsList();
     });
 
   return program;
@@ -54,4 +75,3 @@ export async function main(argv: string[]): Promise<number> {
     return 1;
   }
 }
-

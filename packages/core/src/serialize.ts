@@ -19,7 +19,6 @@ function normalizeSkill(skill: Skill): Skill {
 }
 
 function renderSkill(skill: Skill): string {
-  const tagLine = skill.tags.length > 0 ? skill.tags.join(', ') : '(none)';
   return [
     `## ${skill.slug}`,
     '',
@@ -27,7 +26,7 @@ function renderSkill(skill: Skill): string {
     '',
     `**Description:** ${skill.description}`,
     '',
-    `**Tags:** ${tagLine}`,
+    `**Tags:** ${skill.tags.join(', ')}`,
     '',
     `**Source:** ${skill.source}`,
     '',

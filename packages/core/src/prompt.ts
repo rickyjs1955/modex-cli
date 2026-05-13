@@ -34,7 +34,8 @@ export const EMIT_SKILLS_TOOL = {
             },
             tags: {
               type: 'array',
-              maxItems: 16,
+              minItems: 1,
+              maxItems: 6,
               items: {
                 type: 'string',
                 pattern: '^[a-z0-9]+(-[a-z0-9]+)*$',

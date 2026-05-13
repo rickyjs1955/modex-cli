@@ -75,18 +75,4 @@ describe('serialize', () => {
     expect(out).toBe('---\nschema_version: 0\n---\n');
   });
 
-  it('renders (none) when a skill has no tags', () => {
-    const out = serialize(
-      buildDoc([
-        {
-          slug: 'plain',
-          name: 'Plain',
-          description: 'A skill with no tags.',
-          tags: [],
-          source: 'x.md',
-        },
-      ]),
-    );
-    expect(out).toContain('**Tags:** (none)');
-  });
 });

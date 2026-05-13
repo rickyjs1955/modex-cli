@@ -14,7 +14,8 @@ export const SkillSchema = z.object({
   description: z.string().min(1).max(2000),
   tags: z
     .array(z.string().regex(SLUG_PATTERN, 'tag must be kebab-case [a-z0-9-]').max(40))
-    .max(16),
+    .min(1)
+    .max(6),
   source: z.string().min(1).max(255),
 });
 

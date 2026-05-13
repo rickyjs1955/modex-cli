@@ -8,11 +8,27 @@ Generate `SKILLS.md` from a corpus, on your own machine.
 
 ## Install
 
-Not yet published. Once Phase A lands:
+Not yet published. Once it ships:
 
 ```sh
-npx @modex/cli feed ./book.md
+# create an agent (UUIDv7), then feed it
+modex agents create --name engineering-handbook
+modex feed <agent-id> ./book.md
+modex agents list
 ```
+
+Per-agent state lives at `.modex/<agent-id>/` (config, skills.md, hash-chained provenance log).
+
+## Contributing
+
+```sh
+pnpm install
+pnpm -r build       # build core first; CLI consumes its .d.ts
+pnpm -r test
+pnpm --filter @modex/cli dev -- agents create --name demo
+```
+
+Requires Node 20+ and pnpm 10. See [docs/roadmap.md](docs/roadmap.md) for current phase.
 
 ## Roadmap
 

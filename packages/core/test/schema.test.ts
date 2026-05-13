@@ -34,9 +34,13 @@ describe('SkillSchema', () => {
     expect(() => SkillSchema.parse({ ...valid, tags: [tag] })).toThrow();
   });
 
-  it('rejects more than 16 tags', () => {
-    const tags = Array.from({ length: 17 }, (_, i) => `tag-${i}`);
+  it('rejects more than 6 tags', () => {
+    const tags = Array.from({ length: 7 }, (_, i) => `tag-${i}`);
     expect(() => SkillSchema.parse({ ...valid, tags })).toThrow();
+  });
+
+  it('rejects zero tags', () => {
+    expect(() => SkillSchema.parse({ ...valid, tags: [] })).toThrow();
   });
 
   it('rejects empty name and description', () => {
