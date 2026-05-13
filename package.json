@@ -1,0 +1,21 @@
+{
+  "name": "modex-cli-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Workspace root for modex-cli",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.23.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "dev": "pnpm --filter @modex/cli dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
