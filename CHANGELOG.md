@@ -4,6 +4,25 @@ All notable changes to `modex-cli` are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning will follow [SemVer](https://semver.org/) once we cut a release.
 
+## 0.2.0 — Phase C (unreleased)
+
+### Added
+- `modex feed <agent-id> <pattern...>` accepts multiple sources per invocation: file paths, globs (via `tinyglobby`), and http(s) URLs. Sources are processed sequentially; each lands one provenance entry.
+- PDF source extraction via `unpdf` (wraps Mozilla's pdf.js).
+- EPUB source extraction via `epub2`; chapters joined into one document.
+- Web source extraction via `fetch` + `@mozilla/readability` + `linkedom`. URL fragments are stripped, host is lowercased, default ports removed.
+- SSRF guard on web fetch: rejects IP literals, refuses hostnames that resolve to private/loopback/link-local addresses (incl. EC2 metadata `169.254.169.254`). Reapplied on every redirect hop. 30s timeout, 10MB body cap, manual redirect chain (max 10 hops).
+- New provenance fields on `feed` entries: `source_kind` (`text` | `markdown` | `pdf` | `epub` | `web`) and `source_url` (string for web, `null` for files).
+- `mergeSkills` now treats tag reorder and duplicate tags as equivalent — neither is logged as `updated`.
+- Pinned-hash test (`provenance.test.ts`) asserts the literal sha256 of a known canonical entry. If the canonicalizer or entry shape moves, this test fails loudly rather than silently re-pinning.
+
+### Changed
+- **`PROVENANCE_SCHEMA_VERSION` bumped 0 → 1. Breaking.** Phase B chains (`schema_version: 0`) are rejected at load with an actionable message pointing to `@modex/cli@0.1.x` for legacy agents. Create a fresh agent under `.modex/` to use Phase C.
+- `LoadedSource` shape: `{ basename, content }` → `{ source, source_url, source_kind, content }`. The fields land directly in the provenance entry.
+- `readSource` is now a dispatcher in `sources/index.ts` that routes by extension or URL scheme to `text` / `pdf` / `epub` / `web` loaders.
+- `agent.ts` uses a static `parseSkills` import (was dynamic).
+- `provenance.ts` carries a module-level note that `recordEntry` is single-process serial; an exclusive-lock variant is flagged for Phase E (MCP/parallel scenarios).
+
 ## 0.1.0 — Phase B (unreleased)
 
 ### Added

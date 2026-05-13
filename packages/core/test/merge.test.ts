@@ -38,10 +38,27 @@ describe('mergeSkills', () => {
     expect(r.updated).toEqual([]);
   });
 
-  it('detects tag changes including reordering', () => {
+  it('treats tag reorder as a no-op (equivalent set, not an update)', () => {
     const r = mergeSkills(
       [skill('a', { tags: ['x', 'y'] })],
       [skill('a', { tags: ['y', 'x'] })],
+    );
+    expect(r.updated).toEqual([]);
+    expect(r.added).toEqual([]);
+  });
+
+  it('treats accidental duplicate tags as equivalent (no update)', () => {
+    const r = mergeSkills(
+      [skill('a', { tags: ['x', 'y'] })],
+      [skill('a', { tags: ['x', 'y', 'x'] })],
+    );
+    expect(r.updated).toEqual([]);
+  });
+
+  it('reports an actual tag set change as updated', () => {
+    const r = mergeSkills(
+      [skill('a', { tags: ['x', 'y'] })],
+      [skill('a', { tags: ['x', 'z'] })],
     );
     expect(r.updated).toEqual(['a']);
   });

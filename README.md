@@ -11,11 +11,13 @@ Generate `SKILLS.md` from a corpus, on your own machine.
 Not yet published. Once it ships:
 
 ```sh
-# create an agent (UUIDv7), then feed it
+# create an agent (UUIDv7), then feed it from a mix of sources
 modex agents create --name engineering-handbook
-modex feed <agent-id> ./book.md
+modex feed <agent-id> ./book.md ./papers/*.pdf ./essays/*.epub https://example.com/article
 modex agents list
 ```
+
+Sources can be `.txt`, `.md`, `.pdf`, `.epub`, http(s) URLs, or globs over any of those. Each source is processed sequentially and produces one entry in the agent's `provenance.jsonl`.
 
 Per-agent state lives at `.modex/<agent-id>/` (config, skills.md, hash-chained provenance log).
 

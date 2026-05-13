@@ -25,6 +25,8 @@ function feedDraft(source = 'book.md') {
     kind: 'feed' as const,
     input: {
       source,
+      source_url: null,
+      source_kind: 'markdown' as const,
       source_sha256: SHA,
       source_bytes: 1234,
       model: 'claude-haiku-4-5-20251001',
@@ -96,7 +98,7 @@ describe('recordEntry', () => {
   it('hash is deterministic for the same content', async () => {
     const draft = feedDraft();
     const skeleton = {
-      schema_version: 0 as const,
+      schema_version: 1 as const,
       seq: 1,
       ts: '2026-05-13T00:00:00.000Z',
       kind: draft.kind,
@@ -107,6 +109,25 @@ describe('recordEntry', () => {
     const h1 = computeEntryHash(skeleton);
     const h2 = computeEntryHash({ ...skeleton });
     expect(h1).toBe(h2);
+  });
+
+  // Pin the exact bytes that flow through canonicalize → sha256 for a known
+  // entry. If this hash changes, *something* about the canonicalizer or the
+  // entry shape moved. Either roll PROVENANCE_SCHEMA_VERSION or fix the
+  // regression — do not just update this constant.
+  it('produces a known sha256 hex for a pinned canonical entry', () => {
+    const pinned = {
+      schema_version: 1 as const,
+      seq: 1,
+      ts: '2026-05-13T00:00:00.000Z',
+      kind: 'agent_created' as const,
+      input: { name: 'pinned' },
+      output: { agent_id: 'agent-pinned' },
+      prev: null,
+    };
+    expect(computeEntryHash(pinned)).toBe(
+      'e70316058bd9633dade1b0bc426e56d9912b0ba000cbd1fa1d4f2bb55bbda5f0',
+    );
   });
 });
 
@@ -176,5 +197,24 @@ describe('readChain', () => {
   it('returns [] for missing file', async () => {
     const e = await readChain('/tmp/does-not-exist-modex-prov.jsonl');
     expect(e).toEqual([]);
+  });
+
+  it('rejects a v0 (Phase B) chain with an actionable message', async () => {
+    const path = await tempPath();
+    const v0Line =
+      JSON.stringify({
+        schema_version: 0,
+        seq: 1,
+        ts: '2026-05-13T00:00:00.000Z',
+        kind: 'agent_created',
+        input: { name: 'old' },
+        output: { agent_id: 'old-id' },
+        prev: null,
+        entry_sha256: 'a'.repeat(64),
+      }) + '\n';
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(path, v0Line, 'utf8');
+    await expect(readChain(path)).rejects.toThrow(/schema_version=0/);
+    await expect(readChain(path)).rejects.toThrow(/0\.1\.x/);
   });
 });

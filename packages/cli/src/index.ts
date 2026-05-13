@@ -8,19 +8,24 @@ export function buildProgram(): Command {
   program
     .name('modex')
     .description('Author SKILLS.md from a corpus on your own machine.')
-    .version('0.1.0');
+    .version('0.2.0');
 
   program
     .command('feed')
     .description(
-      'Extract skills from one .txt or .md file, merge into the agent\'s skills.md, and append a provenance entry.',
+      'Extract skills from one or more sources (files, globs, or URLs) and merge into the agent\'s skills.md.',
     )
     .argument('<agent-id>', 'UUIDv7 of the target agent (see `modex agents list`)')
-    .argument('<file>', 'Path to a .txt or .md file')
+    .argument(
+      '<patterns...>',
+      'File paths, globs, or http(s) URLs. Local files: .txt, .md, .pdf, .epub.',
+    )
     .option('--model <id>', 'Anthropic model id to use (default: Claude Haiku 4.5)')
-    .action(async (agentId: string, file: string, opts: { model?: string }) => {
-      await runFeed(agentId, file, { model: opts.model });
-    });
+    .action(
+      async (agentId: string, patterns: string[], opts: { model?: string }) => {
+        await runFeed(agentId, patterns, { model: opts.model });
+      },
+    );
 
   const agents = program
     .command('agents')

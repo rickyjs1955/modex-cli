@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { v7 as uuidv7 } from 'uuid';
 import { z } from 'zod';
 
+import { parseSkills } from './parseSkills.js';
 import { recordEntry } from './provenance.js';
 
 export const AGENT_CONFIG_SCHEMA_VERSION = 0;
@@ -188,7 +189,5 @@ export async function readAgentSkills(skillsFile: string) {
     if (e.code === 'ENOENT') return [];
     throw err;
   }
-  // parseSkills lives in its own module; import here to avoid a cycle.
-  const { parseSkills } = await import('./parseSkills.js');
   return parseSkills(raw).skills;
 }

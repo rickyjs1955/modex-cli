@@ -1,15 +1,30 @@
+// Hash-chained, append-only provenance log.
+//
+// Concurrency: recordEntry reads the chain head, then appends. It is NOT safe
+// against concurrent writers — two parallel recordEntry calls on the same path
+// can race the head read and produce two entries that both claim the same
+// `prev`, breaking verifyChain. modex-cli is single-process serial today and
+// this assumption is fine; the MCP and parallel-batch surfaces (Phase E)
+// will need an exclusive-lock variant.
+// TODO(phase-e): exclusive-lock variant for parallel/MCP scenarios.
+
 import { createHash } from 'node:crypto';
 import { appendFile, readFile } from 'node:fs/promises';
 import { z } from 'zod';
 
 import { canonicalize, type CanonicalJson } from './canonicalJson.js';
 
-export const PROVENANCE_SCHEMA_VERSION = 0;
+export const PROVENANCE_SCHEMA_VERSION = 1;
 
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
+export const SOURCE_KINDS = ['text', 'markdown', 'pdf', 'epub', 'web'] as const;
+export type SourceKind = (typeof SOURCE_KINDS)[number];
+
 const FeedInputSchema = z.object({
   source: z.string().min(1),
+  source_url: z.union([z.string().url(), z.null()]),
+  source_kind: z.enum(SOURCE_KINDS),
   source_sha256: z.string().regex(SHA256_HEX),
   source_bytes: z.number().int().nonnegative(),
   model: z.string().min(1),
@@ -108,6 +123,20 @@ export async function readChain(path: string): Promise<ProvenanceEntry[]> {
       parsedJson = JSON.parse(lines[i]!);
     } catch (err) {
       throw new ProvenanceError(`Line ${i + 1}: invalid JSON (${(err as Error).message})`);
+    }
+    // Detect v0 chains explicitly so the user gets actionable guidance instead
+    // of a generic discriminated-union schema failure.
+    if (
+      parsedJson !== null &&
+      typeof parsedJson === 'object' &&
+      'schema_version' in parsedJson &&
+      (parsedJson as { schema_version: unknown }).schema_version === 0
+    ) {
+      throw new ProvenanceError(
+        `Line ${i + 1}: provenance entry has schema_version=0 (modex-cli@0.1.x, Phase B). ` +
+          `v1 (Phase C) is not backward-compatible: the feed entry shape gained source_kind and source_url. ` +
+          `Create a fresh agent under .modex/, or pin to @modex/cli@0.1.x for legacy agents.`,
+      );
     }
     const result = ProvenanceEntrySchema.safeParse(parsedJson);
     if (!result.success) {

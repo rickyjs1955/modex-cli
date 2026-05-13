@@ -6,9 +6,19 @@ export interface MergeResult {
   updated: string[];
 }
 
-function tagsEqual(a: readonly string[], b: readonly string[]): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+// Compare tag sets order- and duplicate-insensitive. The serializer sorts and
+// the schema rejects empty tag arrays, but a model can legitimately re-emit
+// the same set in a different order or with accidental duplicates — neither
+// should count as an "update".
+function normalizeTags(tags: readonly string[]): string[] {
+  return [...new Set(tags)].sort();
+}
+
+function tagsEquivalent(a: readonly string[], b: readonly string[]): boolean {
+  const na = normalizeTags(a);
+  const nb = normalizeTags(b);
+  if (na.length !== nb.length) return false;
+  for (let i = 0; i < na.length; i++) if (na[i] !== nb[i]) return false;
   return true;
 }
 
@@ -17,7 +27,7 @@ function skillsEqual(a: Skill, b: Skill): boolean {
     a.name === b.name &&
     a.description === b.description &&
     a.source === b.source &&
-    tagsEqual(a.tags, b.tags)
+    tagsEquivalent(a.tags, b.tags)
   );
 }
 
