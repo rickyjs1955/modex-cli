@@ -33,6 +33,41 @@ export { mergeSkills, type MergeResult } from './merge.js';
 
 export { canonicalize, CanonicalJsonError, type CanonicalJson } from './canonicalJson.js';
 
+export {
+  withFileLock,
+  FileLockError,
+  DEFAULT_LOCK_TIMEOUT_MS,
+  DEFAULT_STALE_MS,
+  type LockOptions,
+} from './fileLock.js';
+
+export {
+  runFeed,
+  isFeedError,
+  runAgentsCreate,
+  runAgentsList,
+  runLogin,
+  runLogout,
+  isLoginError,
+  runBind,
+  isBindError,
+  runAspirationsAdd,
+  isAspirationsError,
+  isUserFacingError,
+  type FeedOptions,
+  type FeedResult,
+  type PerSourceResult,
+  type AgentsCreateOptions,
+  type AgentsListOptions,
+  type LoginOptions,
+  type LoginResult,
+  type LogoutOptions,
+  type BindOptions,
+  type BindResult,
+  type AspirationsAddOptions,
+  type AspirationsAddResult,
+} from './operations/index.js';
+
 export { estimateTokens } from './tokenEstimate.js';
 
 export {

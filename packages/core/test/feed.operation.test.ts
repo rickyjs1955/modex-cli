@@ -4,9 +4,8 @@ import { join } from 'node:path';
 import { Writable } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createAgent, parseSkills, readChain, verifyChain } from '@modex/core';
-
-import { runFeed } from '../src/commands/feed.js';
+import { createAgent, parseSkills, readChain, verifyChain } from '../src/index.js';
+import { runFeed } from '../src/operations/feed.js';
 
 const FIXED_ID = '01928c8e-1234-7abc-8def-0123456789ab';
 const FIXED_ID_2 = '01928c8e-5678-7abc-8def-0123456789ab';

@@ -1,4 +1,4 @@
-import { createAgent, listAgents, readAgentSkills } from '@modex/core';
+import { createAgent, listAgents, readAgentSkills } from '../agent.js';
 
 export interface AgentsCreateOptions {
   name?: string;

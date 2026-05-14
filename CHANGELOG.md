@@ -4,6 +4,38 @@ All notable changes to `modex-cli` are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning will follow [SemVer](https://semver.org/) once we cut a release.
 
+## 0.3.1 — Phase E (first published release)
+
+This is the first version published to npm. `@modex/core` and `@modex/cli`
+go out together under the `@modex` scope.
+
+### Added
+- **`recordEntry` is now concurrency-safe.** A per-file `O_EXCL` lock
+  (`fileLock.ts`) serializes the read-head → append sequence, so concurrent
+  callers — e.g. parallel MCP tool invocations — can't race the head read and
+  fork the chain. A crashed holder's lock is detected (dead pid, or older than
+  30s) and stolen; acquisition times out at 10s.
+- **`run*` orchestrators promoted into `@modex/core`** (`operations/`):
+  `runFeed`, `runAgentsCreate`, `runAgentsList`, `runLogin`, `runLogout`,
+  `runBind`, `runAspirationsAdd`, plus `isUserFacingError`. All three surfaces
+  (CLI, MCP server, GitHub Action) now share one implementation — wrappers hold
+  no business logic.
+- Package metadata for npm: `publishConfig.access: public`, `repository`,
+  `homepage`, `bugs`, `keywords`, per-package `README.md` + `LICENSE`,
+  `prepublishOnly` build+test gate.
+
+### Changed
+- `DEFAULT_USER_AGENT` in `sources/web.ts` is now built from `__MODEX_VERSION__`
+  (injected at build time by tsup, at test time by vitest) instead of a
+  hard-coded `0.2` string — it can no longer drift from the package version.
+- `@modex/cli` is now a pure commander wrapper over `@modex/core`; the
+  `src/commands/*` files were removed and their integration tests moved to
+  `packages/core/test/` alongside the operations they exercise.
+
+### Fixed
+- `bind` no longer uses a structural cast to pull aspiration hashes out of the
+  provenance chain — it uses a typed `AspirationAddedEntry` predicate.
+
 ## 0.3.0 — Phase D (unreleased)
 
 ### Added

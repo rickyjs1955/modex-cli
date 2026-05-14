@@ -1,26 +1,21 @@
+import {
+  isUserFacingError,
+  runAgentsCreate,
+  runAgentsList,
+  runAspirationsAdd,
+  runBind,
+  runFeed,
+  runLogin,
+  runLogout,
+} from '@modex/core';
 import { Command } from 'commander';
-
-import { runAgentsCreate, runAgentsList } from './commands/agents.js';
-import { isAspirationsError, runAspirationsAdd } from './commands/aspirations.js';
-import { isBindError, runBind } from './commands/bind.js';
-import { isUserFacingError, runFeed } from './commands/feed.js';
-import { isLoginError, runLogin, runLogout } from './commands/login.js';
-
-function isUserFacing(err: unknown): err is Error {
-  return (
-    isUserFacingError(err) ||
-    isLoginError(err) ||
-    isBindError(err) ||
-    isAspirationsError(err)
-  );
-}
 
 export function buildProgram(): Command {
   const program = new Command();
   program
     .name('modex')
     .description('Author SKILLS.md from a corpus on your own machine.')
-    .version('0.3.0');
+    .version('0.3.1');
 
   program
     .command('feed')
@@ -104,7 +99,7 @@ export async function main(argv: string[]): Promise<number> {
     await program.parseAsync(argv);
     return 0;
   } catch (err: unknown) {
-    if (isUserFacing(err)) {
+    if (isUserFacingError(err)) {
       process.stderr.write(`error: ${err.message}\n`);
       return 1;
     }

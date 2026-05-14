@@ -1,18 +1,19 @@
 // Hash-chained, append-only provenance log.
 //
-// Concurrency: recordEntry reads the chain head, then appends. It is NOT safe
-// against concurrent writers — two parallel recordEntry calls on the same path
-// can race the head read and produce two entries that both claim the same
-// `prev`, breaking verifyChain. modex-cli is single-process serial today and
-// this assumption is fine; the MCP and parallel-batch surfaces (Phase E)
-// will need an exclusive-lock variant.
-// TODO(phase-e): exclusive-lock variant for parallel/MCP scenarios.
+// Concurrency: recordEntry's read-head → compute → append sequence is wrapped
+// in a per-file exclusive lock (withFileLock). Two parallel recordEntry calls
+// on the same path — e.g. concurrent MCP tool invocations — serialize on the
+// lockfile rather than racing the head read and producing two entries that
+// both claim the same `prev`. Readers (readChain) stay lock-free: a single
+// canonical line is < PIPE_BUF, so appendFile is atomic and a reader never
+// observes a torn line.
 
 import { createHash } from 'node:crypto';
 import { appendFile, readFile } from 'node:fs/promises';
 import { z } from 'zod';
 
 import { canonicalize, type CanonicalJson } from './canonicalJson.js';
+import { withFileLock, type LockOptions } from './fileLock.js';
 
 export const PROVENANCE_SCHEMA_VERSION = 1;
 
@@ -265,53 +266,68 @@ export interface RecordEntryOptions {
   // If supplied, used as the previous-entry hash and seq. Otherwise read from disk.
   prev?: string | null;
   seq?: number;
+  // Tuning / test seam for the per-file lock that serializes appends.
+  lock?: LockOptions;
 }
 
 // Append a new entry to the chain. Reads the head from disk to determine
 // seq + prev (unless provided), computes entry_sha256, then writes a single
 // canonical JSON line.
 //
+// The read-head → compute → append sequence runs under a per-file exclusive
+// lock so concurrent callers (e.g. parallel MCP tool invocations) serialize
+// instead of racing the head read. When seq AND prev are both supplied the
+// caller has taken responsibility for ordering, but we still lock to keep the
+// physical append atomic against other writers.
+//
 // On disk we write the canonical form (sorted keys, no whitespace) so that
 // the line bytes are byte-identical for any reader and re-canonicalization
 // after parse is a no-op.
 export async function recordEntry(opts: RecordEntryOptions): Promise<ProvenanceEntry> {
-  let seq = opts.seq;
-  let prev = opts.prev;
-  if (seq === undefined || prev === undefined) {
-    const existing = await readChain(opts.path);
-    seq = seq ?? existing.length + 1;
-    prev = prev ?? (existing.length === 0 ? null : existing[existing.length - 1]!.entry_sha256);
-  }
+  return withFileLock(
+    opts.path,
+    async () => {
+      let seq = opts.seq;
+      let prev = opts.prev;
+      if (seq === undefined || prev === undefined) {
+        const existing = await readChain(opts.path);
+        seq = seq ?? existing.length + 1;
+        prev =
+          prev ?? (existing.length === 0 ? null : existing[existing.length - 1]!.entry_sha256);
+      }
 
-  const ts = opts.ts ?? opts.draft.ts ?? new Date().toISOString();
+      const ts = opts.ts ?? opts.draft.ts ?? new Date().toISOString();
 
-  const skeleton = {
-    schema_version: PROVENANCE_SCHEMA_VERSION,
-    seq,
-    ts,
-    kind: opts.draft.kind,
-    input: opts.draft.input,
-    output: opts.draft.output,
-    prev,
-  };
+      const skeleton = {
+        schema_version: PROVENANCE_SCHEMA_VERSION,
+        seq,
+        ts,
+        kind: opts.draft.kind,
+        input: opts.draft.input,
+        output: opts.draft.output,
+        prev,
+      };
 
-  // Validate skeleton against the schema (without entry_sha256) by attaching
-  // a placeholder hash, so we surface bad inputs before hashing.
-  const validation = ProvenanceEntrySchema.safeParse({
-    ...skeleton,
-    entry_sha256: '0'.repeat(64),
-  });
-  if (!validation.success) {
-    throw new ProvenanceError(
-      `Invalid entry: ${validation.error.issues
-        .map((i) => `${i.path.join('.')}: ${i.message}`)
-        .join('; ')}`,
-    );
-  }
+      // Validate skeleton against the schema (without entry_sha256) by attaching
+      // a placeholder hash, so we surface bad inputs before hashing.
+      const validation = ProvenanceEntrySchema.safeParse({
+        ...skeleton,
+        entry_sha256: '0'.repeat(64),
+      });
+      if (!validation.success) {
+        throw new ProvenanceError(
+          `Invalid entry: ${validation.error.issues
+            .map((i) => `${i.path.join('.')}: ${i.message}`)
+            .join('; ')}`,
+        );
+      }
 
-  const entry_sha256 = computeEntryHash(skeleton as Omit<ProvenanceEntry, 'entry_sha256'>);
-  const full = { ...skeleton, entry_sha256 } as ProvenanceEntry;
-  const line = canonicalize(full as unknown as CanonicalJson) + '\n';
-  await appendFile(opts.path, line, 'utf8');
-  return full;
+      const entry_sha256 = computeEntryHash(skeleton as Omit<ProvenanceEntry, 'entry_sha256'>);
+      const full = { ...skeleton, entry_sha256 } as ProvenanceEntry;
+      const line = canonicalize(full as unknown as CanonicalJson) + '\n';
+      await appendFile(opts.path, line, 'utf8');
+      return full;
+    },
+    opts.lock,
+  );
 }

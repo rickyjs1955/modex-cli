@@ -6,7 +6,9 @@ import { SourceError } from './types.js';
 
 export const DEFAULT_TIMEOUT_MS = 30_000;
 export const DEFAULT_MAX_BYTES = 10 * 1024 * 1024;
-export const DEFAULT_USER_AGENT = 'modex-cli/0.2 (+https://modex.md)';
+// __MODEX_VERSION__ is injected at build time (tsup) and test time (vitest)
+// from package.json, so this never drifts from the published version.
+export const DEFAULT_USER_AGENT = `modex-cli/${__MODEX_VERSION__} (+https://modex.md)`;
 const MAX_REDIRECTS = 10;
 const ALLOWED_CONTENT_TYPES = [
   'text/html',

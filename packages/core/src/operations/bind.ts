@@ -1,23 +1,21 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
+import { AgentError, loadAgent, readAgentSkills } from '../agent.js';
+import { clearCredentials, CredentialsError, loadCredentials } from '../credentials.js';
 import {
-  AgentError,
-  bindAgent,
-  buildDoc,
-  clearCredentials,
-  CredentialsError,
-  loadAgent,
-  loadCredentials,
+  type AspirationAddedEntry,
+  type ProvenanceEntry,
   ProvenanceError,
-  readAgentSkills,
   readChain,
   recordEntry,
-  RegistryError,
-  RegistryStateError,
-  serialize,
-  writeRegistryState,
-} from '@modex/core';
+} from '../provenance.js';
+import { bindAgent, RegistryError } from '../registry/index.js';
+import { RegistryStateError, writeRegistryState } from '../registryState.js';
+import { buildDoc, serialize } from '../serialize.js';
+
+const isAspirationAdded = (e: ProvenanceEntry): e is AspirationAddedEntry =>
+  e.kind === 'aspiration_added';
 
 export interface BindOptions {
   baseDir?: string;
@@ -79,8 +77,8 @@ export async function runBind(agentId: string, opts: BindOptions = {}): Promise<
   }
   const provenanceHead = chain[chain.length - 1]!.entry_sha256;
   const aspirationSha256s = chain
-    .filter((e) => e.kind === 'aspiration_added')
-    .map((e) => (e as { input: { aspiration_sha256: string } }).input.aspiration_sha256);
+    .filter(isAspirationAdded)
+    .map((e) => e.input.aspiration_sha256);
 
   let response;
   try {

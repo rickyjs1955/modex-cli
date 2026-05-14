@@ -1,32 +1,22 @@
 import { createHash } from 'node:crypto';
 
-import {
-  AgentError,
-  buildDoc,
-  estimateTokens,
-  expandPatterns,
-  ExtractionError,
-  extractSkills,
-  loadAgent,
-  type LoadedSource,
-  MODEL_ID,
-  mergeSkills,
-  ParseSkillsError,
-  ProvenanceError,
-  readAgentSkills,
-  readSource,
-  recordEntry,
-  serialize,
-  SourceError,
-  writeSkillsAtomic,
-} from '@modex/core';
+import { AgentError, loadAgent, readAgentSkills, writeSkillsAtomic } from '../agent.js';
+import { ExtractionError, extractSkills } from '../extract.js';
+import { expandPatterns } from '../glob.js';
+import { mergeSkills } from '../merge.js';
+import { ParseSkillsError } from '../parseSkills.js';
+import { MODEL_ID } from '../prompt.js';
+import { ProvenanceError, recordEntry } from '../provenance.js';
+import { buildDoc, serialize } from '../serialize.js';
+import { readSource, SourceError, type LoadedSource } from '../sources/index.js';
+import { estimateTokens } from '../tokenEstimate.js';
 
 export interface FeedOptions {
   model?: string;
   baseDir?: string;
-  // Test-only injection points. `client` is typed loosely here so the CLI
-  // package doesn't have to take a direct dep on @anthropic-ai/sdk; tests
-  // pass a hand-rolled stub and core's extractSkills validates the call.
+  // Test-only injection points. `client` is typed loosely so callers that
+  // never touch the SDK don't have to import its types; extractSkills
+  // validates the shape it actually needs.
   client?: unknown;
   apiKey?: string;
   ts?: string | (() => string);
@@ -175,7 +165,9 @@ export async function runFeed(
   return { agentId: agent.config.id, perSource };
 }
 
-export function isUserFacingError(err: unknown): err is Error {
+// True for the errors runFeed raises that are the user's to fix (bad path,
+// unparseable skills.md, API failure) rather than internal bugs.
+export function isFeedError(err: unknown): err is Error {
   return (
     err instanceof ExtractionError ||
     err instanceof SourceError ||

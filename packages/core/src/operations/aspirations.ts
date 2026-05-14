@@ -2,19 +2,11 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 
-import {
-  addAspiration,
-  AgentError,
-  clearCredentials,
-  CredentialsError,
-  loadAgent,
-  loadCredentials,
-  ProvenanceError,
-  readRegistryState,
-  recordEntry,
-  RegistryError,
-  RegistryStateError,
-} from '@modex/core';
+import { AgentError, loadAgent } from '../agent.js';
+import { clearCredentials, CredentialsError, loadCredentials } from '../credentials.js';
+import { ProvenanceError, recordEntry } from '../provenance.js';
+import { addAspiration, RegistryError } from '../registry/index.js';
+import { readRegistryState, RegistryStateError } from '../registryState.js';
 
 export interface AspirationsAddOptions {
   baseDir?: string;
@@ -39,11 +31,11 @@ function sha256Hex(text: string): string {
 /**
  * Append an aspiration to a bound agent.
  *
- * Append-only: there is deliberately no edit or delete command — the registry
- * rejects mutation and so does the CLI by omission.
+ * Append-only: there is deliberately no edit or delete operation — the
+ * registry rejects mutation and so does this surface by omission.
  *
- * Requires a prior `modex bind`: we check the local registry.json and fail
- * fast with guidance rather than letting the registry return a 404.
+ * Requires a prior bind: we check the local registry.json and fail fast with
+ * guidance rather than letting the registry return a 404.
  *
  * Ordering matches bind — POST first, record the `aspiration_added`
  * provenance entry only on a 2xx.

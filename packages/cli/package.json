@@ -1,6 +1,6 @@
 {
   "name": "@modex/cli",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "modex-cli — author SKILLS.md from a corpus on your own machine",
   "license": "MIT",
   "type": "module",
@@ -11,16 +11,38 @@
   "files": [
     "bin",
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
+  "keywords": [
+    "modex",
+    "skills",
+    "skills.md",
+    "cli",
+    "provenance",
+    "ai-agents"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rickyjs1955/modex-cli.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/rickyjs1955/modex-cli#readme",
+  "bugs": {
+    "url": "https://github.com/rickyjs1955/modex-cli/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsx src/cli.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm build && pnpm test"
   },
   "dependencies": {
-    "@modex/core": "workspace:*",
+    "@modex/core": "workspace:^",
     "commander": "^12.1.0"
   },
   "devDependencies": {

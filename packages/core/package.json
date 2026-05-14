@@ -1,7 +1,7 @@
 {
   "name": "@modex/core",
-  "version": "0.3.0",
-  "description": "Core extraction + canonical SKILLS.md serialization for modex-cli",
+  "version": "0.3.1",
+  "description": "Core extraction, canonical SKILLS.md serialization, hash-chained provenance, and registry client for modex-cli",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,13 +14,35 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
+  "keywords": [
+    "modex",
+    "skills",
+    "skills.md",
+    "provenance",
+    "ai-agents",
+    "anthropic"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rickyjs1955/modex-cli.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/rickyjs1955/modex-cli/tree/main/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/rickyjs1955/modex-cli/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm build && pnpm test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.0",

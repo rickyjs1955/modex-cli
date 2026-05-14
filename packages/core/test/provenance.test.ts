@@ -300,3 +300,51 @@ describe('recordEntry — Phase D kinds', () => {
     ).rejects.toThrow(ProvenanceError);
   });
 });
+
+describe('recordEntry — concurrency', () => {
+  it('serializes concurrent appends into a verifiable chain', async () => {
+    const path = await tempPath();
+    await recordEntry({
+      path,
+      draft: { kind: 'agent_created', input: { name: 'a' }, output: { agent_id: 'id' } },
+      ts: '2026-05-13T00:00:00.000Z',
+    });
+
+    // Fire 12 feed appends in parallel. Without the per-file lock these would
+    // race the head read and collide on seq / prev.
+    const N = 12;
+    await Promise.all(
+      Array.from({ length: N }, (_, i) =>
+        recordEntry({
+          path,
+          draft: feedDraft(`source-${i}.md`),
+          ts: `2026-05-13T00:01:${String(i).padStart(2, '0')}.000Z`,
+        }),
+      ),
+    );
+
+    const chain = await readChain(path);
+    expect(chain).toHaveLength(N + 1); // genesis + N feeds
+    expect(chain.map((e) => e.seq)).toEqual(
+      Array.from({ length: N + 1 }, (_, i) => i + 1),
+    );
+    verifyChain(chain);
+  });
+
+  it('surfaces a lock-acquire timeout as an error', async () => {
+    const path = await tempPath();
+    // Pre-place a fresh, live lockfile that never releases.
+    await writeFile(
+      `${path}.lock`,
+      JSON.stringify({ pid: process.pid, acquired_at: Date.now() }),
+      'utf8',
+    );
+    await expect(
+      recordEntry({
+        path,
+        draft: { kind: 'agent_created', input: { name: 'a' }, output: { agent_id: 'id' } },
+        lock: { timeoutMs: 150, staleMs: 30_000 },
+      }),
+    ).rejects.toThrow(/acquiring/);
+  });
+});

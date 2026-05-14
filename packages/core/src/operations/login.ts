@@ -1,12 +1,10 @@
 import {
+  clearCredentials,
   CredentialsError,
   DEFAULT_REGISTRY_URL,
-  pollForToken,
-  RegistryError,
   saveCredentials,
-  startDeviceCode,
-  clearCredentials,
-} from '@modex/core';
+} from '../credentials.js';
+import { pollForToken, RegistryError, startDeviceCode } from '../registry/index.js';
 
 export interface LoginOptions {
   registry?: string;

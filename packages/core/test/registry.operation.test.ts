@@ -11,11 +11,11 @@ import {
   readRegistryState,
   recordEntry,
   verifyChain,
-} from '@modex/core';
+} from '../src/index.js';
 
-import { runLogin, runLogout } from '../src/commands/login.js';
-import { runBind } from '../src/commands/bind.js';
-import { runAspirationsAdd } from '../src/commands/aspirations.js';
+import { runLogin, runLogout } from '../src/operations/login.js';
+import { runBind } from '../src/operations/bind.js';
+import { runAspirationsAdd } from '../src/operations/aspirations.js';
 
 const FIXED_ID = '01928c8e-1234-7abc-8def-0123456789ab';
 const REGISTRY = 'https://registry.example';
