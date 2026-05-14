@@ -40,7 +40,7 @@ Only the SKILLS.md content + hashes (and aspiration content) reach the registry 
 pnpm install
 pnpm -r build       # build core first; CLI consumes its .d.ts
 pnpm -r test
-pnpm --filter @modex/cli dev -- agents create --name demo
+pnpm --filter @mojax/cli dev -- agents create --name demo
 ```
 
 Requires Node 20+ and pnpm 10. See [docs/roadmap.md](docs/roadmap.md) for current phase.

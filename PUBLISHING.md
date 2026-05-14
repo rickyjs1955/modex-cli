@@ -1,11 +1,11 @@
 # Publishing
 
-`@modex/core` and `@modex/cli` are published to npm under the `@modex` scope,
+`@mojax/core` and `@mojax/cli` are published to npm under the `@mojax` scope,
 in lockstep (same version). Pre-1.0 — currently the `0.3.x` line.
 
 ## Prerequisites
 
-- npm account with publish rights on the `@modex` scope.
+- npm account with publish rights on the `@mojax` scope.
 - `npm login` completed locally (2FA prompts will appear at publish time).
 - A clean working tree on `main`.
 
@@ -29,8 +29,8 @@ in lockstep (same version). Pre-1.0 — currently the `0.3.x` line.
    time, so core must already be on the registry:
 
    ```sh
-   pnpm --filter @modex/core publish
-   pnpm --filter @modex/cli publish
+   pnpm --filter @mojax/core publish
+   pnpm --filter @mojax/cli publish
    ```
 
    Each runs `prepublishOnly` (build + test) first. `publishConfig.access` is
@@ -46,8 +46,8 @@ in lockstep (same version). Pre-1.0 — currently the `0.3.x` line.
 5. **Smoke-test the published CLI** in a throwaway directory:
 
    ```sh
-   npx @modex/cli@<version> --version
-   npx @modex/cli@<version> agents create --name smoke-test
+   npx @mojax/cli@<version> --version
+   npx @mojax/cli@<version> agents create --name smoke-test
    ```
 
 ## Notes
@@ -55,5 +55,5 @@ in lockstep (same version). Pre-1.0 — currently the `0.3.x` line.
 - `files` allowlists keep the tarballs minimal: `dist/`, `README.md`, `LICENSE`
   (plus `bin/` for the CLI). `src/` and tests are not published.
 - The two companion repos (`modex-mcp`, `modex-github-action`) depend on the
-  **published** `@modex/core`. Publish here first, then bump their dependency
+  **published** `@mojax/core`. Publish here first, then bump their dependency
   ranges.

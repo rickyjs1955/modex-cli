@@ -1,9 +1,9 @@
-# @modex/cli
+# @mojax/cli
 
 Author a `SKILLS.md` from a corpus, on your own machine.
 
 ```sh
-npm install -g @modex/cli
+npm install -g @mojax/cli
 
 # create an agent, then feed it from a mix of sources
 modex agents create --name engineering-handbook
@@ -31,7 +31,7 @@ modex logout
 Only `SKILLS.md` content + hashes (and aspiration content) reach the registry —
 the corpus never leaves your machine.
 
-All orchestration lives in [`@modex/core`](https://www.npmjs.com/package/@modex/core);
+All orchestration lives in [`@mojax/core`](https://www.npmjs.com/package/@mojax/core);
 this package is the terminal surface over it.
 
 ## License

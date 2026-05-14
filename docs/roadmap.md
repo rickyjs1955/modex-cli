@@ -8,7 +8,7 @@
 - `feed` parses one `.txt`/`.md` file, calls the Anthropic API with a structured extraction prompt, emits candidate skills to stdout
 - Define the canonical SKILLS.md schema (stable ordering — hashing depends on it)
 
-**Exit criterion:** `npx @modex/cli feed ./book.md` produces stable SKILLS.md output.
+**Exit criterion:** `npx @mojax/cli feed ./book.md` produces stable SKILLS.md output.
 
 ## B — Local state + provenance
 

@@ -13,7 +13,7 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "dev": "pnpm --filter @modex/cli dev"
+    "dev": "pnpm --filter @mojax/cli dev"
   },
   "devDependencies": {
     "typescript": "^5.6.3"

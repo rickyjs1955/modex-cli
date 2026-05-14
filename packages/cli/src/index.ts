@@ -7,7 +7,7 @@ import {
   runFeed,
   runLogin,
   runLogout,
-} from '@modex/core';
+} from '@mojax/core';
 import { Command } from 'commander';
 
 export function buildProgram(): Command {

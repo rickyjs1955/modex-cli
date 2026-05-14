@@ -1,5 +1,5 @@
 {
-  "name": "@modex/core",
+  "name": "@mojax/core",
   "version": "0.3.1",
   "description": "Core extraction, canonical SKILLS.md serialization, hash-chained provenance, and registry client for modex-cli",
   "license": "MIT",
