@@ -6,8 +6,17 @@ versioning will follow [SemVer](https://semver.org/) once we cut a release.
 
 ## 0.3.1 — Phase E (first published release)
 
-This is the first version published to npm. `@mojax/core` and `@mojax/cli`
-go out together under the `@mojax` scope.
+> **npm scope renamed `@mojax` → `@modexagents` (2026-05-15).** The package
+> contents are unchanged by the rename itself; `@modexagents/*` is a fresh
+> package name carrying the same `0.3.1`. `@mojax/core` and `@mojax/cli` are
+> deprecated on npm and point here. `@mojax` was a fallback when the bare
+> `@modex` org was unavailable — `@modexagents` keeps the product name
+> "Modex" visible with a true descriptive qualifier. The `modex` command,
+> the `.modex/` state directory, `MODEX_*` env vars, and every other
+> identifier are unchanged.
+
+This is the first version published to npm. `@modexagents/core` and `@modexagents/cli`
+go out together under the `@modexagents` scope.
 
 ### Added
 - **`recordEntry` is now concurrency-safe.** A per-file `O_EXCL` lock
@@ -15,7 +24,7 @@ go out together under the `@mojax` scope.
   callers — e.g. parallel MCP tool invocations — can't race the head read and
   fork the chain. A crashed holder's lock is detected (dead pid, or older than
   30s) and stolen; acquisition times out at 10s.
-- **`run*` orchestrators promoted into `@mojax/core`** (`operations/`):
+- **`run*` orchestrators promoted into `@modexagents/core`** (`operations/`):
   `runFeed`, `runAgentsCreate`, `runAgentsList`, `runLogin`, `runLogout`,
   `runBind`, `runAspirationsAdd`, plus `isUserFacingError`. All three surfaces
   (CLI, MCP server, GitHub Action) now share one implementation — wrappers hold
@@ -23,12 +32,15 @@ go out together under the `@mojax` scope.
 - Package metadata for npm: `publishConfig.access: public`, `repository`,
   `homepage`, `bugs`, `keywords`, per-package `README.md` + `LICENSE`,
   `prepublishOnly` build+test gate.
+- `createAgent` drops a `.modex/.gitignore` (`*.lock`) so the transient
+  per-file provenance lock is never committed when a `.modex/` directory is
+  checked into git.
 
 ### Changed
 - `DEFAULT_USER_AGENT` in `sources/web.ts` is now built from `__MODEX_VERSION__`
   (injected at build time by tsup, at test time by vitest) instead of a
   hard-coded `0.2` string — it can no longer drift from the package version.
-- `@mojax/cli` is now a pure commander wrapper over `@mojax/core`; the
+- `@modexagents/cli` is now a pure commander wrapper over `@modexagents/core`; the
   `src/commands/*` files were removed and their integration tests moved to
   `packages/core/test/` alongside the operations they exercise.
 
@@ -44,7 +56,7 @@ go out together under the `@mojax` scope.
 - `modex bind <agent-id>` — uploads SKILLS.md **content + hash** + provenance-head hash + aspiration hashes to the registry, records a `bound` provenance entry, and writes `.modex/<id>/registry.json` (denormalized bound-state cache). `409` → already-bound message; `401` → credential cleared + re-login prompt.
 - `modex aspirations add <agent-id> <md-file>` — append-only. Requires a prior `bind` (checked locally). POSTs `{ sha256, content }`, then records an `aspiration_added` provenance entry. There is deliberately no edit/delete command.
 - Provenance union gains two kinds: `bound` and `aspiration_added`. Both stay at `schema_version: 1` — see Changed.
-- Registry client (`startDeviceCode`, `pollForToken`, `bindAgent`, `addAspiration`) lives in `@mojax/core` so the Phase E MCP server can reuse it. All network calls take an injectable `fetch`/`sleep`/`now` for testing.
+- Registry client (`startDeviceCode`, `pollForToken`, `bindAgent`, `addAspiration`) lives in `@modexagents/core` so the Phase E MCP server can reuse it. All network calls take an injectable `fetch`/`sleep`/`now` for testing.
 - IPv6 SSRF check now parses hextets (handles compressed/expanded forms and IPv4-mapped addresses) instead of string-prefix matching.
 
 ### Changed
@@ -68,7 +80,7 @@ go out together under the `@mojax` scope.
 - Pinned-hash test (`provenance.test.ts`) asserts the literal sha256 of a known canonical entry. If the canonicalizer or entry shape moves, this test fails loudly rather than silently re-pinning.
 
 ### Changed
-- **`PROVENANCE_SCHEMA_VERSION` bumped 0 → 1. Breaking.** Phase B chains (`schema_version: 0`) are rejected at load with an actionable message pointing to `@mojax/cli@0.1.x` for legacy agents. Create a fresh agent under `.modex/` to use Phase C.
+- **`PROVENANCE_SCHEMA_VERSION` bumped 0 → 1. Breaking.** Phase B chains (`schema_version: 0`) are rejected at load with an actionable message pointing to `@modexagents/cli@0.1.x` for legacy agents. Create a fresh agent under `.modex/` to use Phase C.
 - `LoadedSource` shape: `{ basename, content }` → `{ source, source_url, source_kind, content }`. The fields land directly in the provenance entry.
 - `readSource` is now a dispatcher in `sources/index.ts` that routes by extension or URL scheme to `text` / `pdf` / `epub` / `web` loaders.
 - `agent.ts` uses a static `parseSkills` import (was dynamic).
@@ -94,7 +106,7 @@ go out together under the `@mojax` scope.
 ## 0.0.0 — Phase A (initial)
 
 ### Added
-- pnpm workspace with `@mojax/core` and `@mojax/cli` packages.
+- pnpm workspace with `@modexagents/core` and `@modexagents/cli` packages.
 - `modex feed <file>` extracts skills from one `.txt` or `.md` file via Claude Haiku 4.5 (tool-forced JSON output, prompt caching on the system block) and writes canonical SKILLS.md to stdout.
 - Byte-stable canonical SKILLS.md serializer (LF, slug-sorted via UTF-16 code-unit comparison, fixed field order, no timestamps in the body).
 - Vitest coverage: golden fixture, idempotence, order-independence, mocked-Anthropic extract pipeline.

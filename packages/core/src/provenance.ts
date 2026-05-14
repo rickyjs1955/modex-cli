@@ -198,7 +198,7 @@ export async function readChain(path: string): Promise<ProvenanceEntry[]> {
       throw new ProvenanceError(
         `Line ${i + 1}: provenance entry has schema_version=0 (modex-cli@0.1.x, Phase B). ` +
           `v1 (Phase C) is not backward-compatible: the feed entry shape gained source_kind and source_url. ` +
-          `Create a fresh agent under .modex/, or pin to @mojax/cli@0.1.x for legacy agents.`,
+          `Create a fresh agent under .modex/, or pin to @modexagents/cli@0.1.x for legacy agents.`,
       );
     }
     // Forward-compat: a v1 entry with a `kind` this build doesn't know was

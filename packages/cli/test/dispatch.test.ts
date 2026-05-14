@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildProgram, main } from '../src/index.js';
 
 // The CLI package is a thin commander wrapper — all orchestration lives in
-// @mojax/core and is exercised by core's operation tests. These tests only
+// @modexagents/core and is exercised by core's operation tests. These tests only
 // cover the dispatch layer: that the expected commands are wired and that
 // main() maps outcomes to exit codes.
 

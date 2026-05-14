@@ -73,6 +73,20 @@ export async function writeSkillsAtomic(path: string, content: string): Promise<
   await rename(tmp, path);
 }
 
+// Ensure `.modex/.gitignore` exists, ignoring the transient `*.lock` files
+// the per-file provenance lock creates. Users may commit their `.modex/`
+// directory (the "reading lists in git" use case) and a lockfile must never
+// ride along. The `wx` flag means we create it once and never clobber a
+// user-customized version.
+async function ensureModexGitignore(baseDir: string): Promise<void> {
+  const gitignorePath = join(modexDir(baseDir), '.gitignore');
+  try {
+    await writeFile(gitignorePath, '*.lock\n', { flag: 'wx' });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+  }
+}
+
 export interface CreateAgentOptions {
   name?: string;
   baseDir?: string;
@@ -93,6 +107,7 @@ export async function createAgent(opts: CreateAgentOptions = {}): Promise<AgentR
 
   // mkdir -p .modex/<id>
   await mkdir(paths.dir, { recursive: true });
+  await ensureModexGitignore(baseDir);
 
   const config: AgentConfig = {
     schema_version: AGENT_CONFIG_SCHEMA_VERSION,

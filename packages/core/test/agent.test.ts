@@ -62,6 +62,27 @@ describe('createAgent', () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
   });
+
+  it('writes a .modex/.gitignore that ignores *.lock', async () => {
+    const base = await tempBase();
+    await createAgent({ baseDir: base, id: FIXED_ID, ts: '2026-05-13T12:00:00.000Z' });
+    const gitignore = await readFile(join(base, '.modex', '.gitignore'), 'utf8');
+    expect(gitignore).toBe('*.lock\n');
+  });
+
+  it('does not clobber an existing .modex/.gitignore on a second createAgent', async () => {
+    const base = await tempBase();
+    await createAgent({ baseDir: base, id: FIXED_ID, ts: '2026-05-13T12:00:00.000Z' });
+    // Simulate a user-customized ignore file.
+    const customized = '*.lock\n# my notes\nscratch/\n';
+    await writeFile(join(base, '.modex', '.gitignore'), customized, 'utf8');
+    await createAgent({
+      baseDir: base,
+      id: '01928c8e-5678-7abc-8def-0123456789ab',
+      ts: '2026-05-13T13:00:00.000Z',
+    });
+    expect(await readFile(join(base, '.modex', '.gitignore'), 'utf8')).toBe(customized);
+  });
 });
 
 describe('loadAgent', () => {

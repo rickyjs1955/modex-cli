@@ -1,4 +1,4 @@
-# @mojax/core
+# @modexagents/core
 
 Core library behind [`modex-cli`](https://github.com/rickyjs1955/modex-cli) — the
 shared engine used by the CLI, the MCP server, and the GitHub Action.
@@ -12,7 +12,7 @@ It provides:
 - **Operations** — high-level `runFeed` / `runBind` / `runAspirationsAdd` / `runAgents*` / `runLogin` orchestrators that every surface calls.
 
 ```ts
-import { runFeed, createAgent } from '@mojax/core';
+import { runFeed, createAgent } from '@modexagents/core';
 
 const agent = await createAgent({ name: 'engineering-handbook' });
 await runFeed(agent.config.id, ['./book.md', './papers/*.pdf']);

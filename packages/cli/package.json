@@ -1,5 +1,5 @@
 {
-  "name": "@mojax/cli",
+  "name": "@modexagents/cli",
   "version": "0.3.1",
   "description": "modex-cli — author SKILLS.md from a corpus on your own machine",
   "license": "MIT",
@@ -42,7 +42,7 @@
     "prepublishOnly": "pnpm build && pnpm test"
   },
   "dependencies": {
-    "@mojax/core": "workspace:^",
+    "@modexagents/core": "workspace:^",
     "commander": "^12.1.0"
   },
   "devDependencies": {
