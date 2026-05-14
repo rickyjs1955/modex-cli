@@ -21,6 +21,19 @@ Sources can be `.txt`, `.md`, `.pdf`, `.epub`, http(s) URLs, or globs over any o
 
 Per-agent state lives at `.modex/<agent-id>/` (config, skills.md, hash-chained provenance log).
 
+## Registry binding (optional)
+
+Authoring is fully offline and needs no account. To claim a SKILLS.md's lineage on a Modex-compatible registry:
+
+```sh
+modex login                              # device-code flow; writes ~/.config/modex/credentials.json (0600)
+modex bind <agent-id>                     # uploads SKILLS.md + provenance head, claims the agent
+modex aspirations add <agent-id> goal.md  # append an aspiration (append-only — no edit/delete)
+modex logout                             # clear the local credential
+```
+
+Only the SKILLS.md content + hashes (and aspiration content) reach the registry — the corpus never leaves your machine.
+
 ## Contributing
 
 ```sh

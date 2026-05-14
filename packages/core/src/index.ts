@@ -38,9 +38,12 @@ export { estimateTokens } from './tokenEstimate.js';
 export {
   PROVENANCE_SCHEMA_VERSION,
   SOURCE_KINDS,
+  KNOWN_ENTRY_KINDS,
   ProvenanceEntrySchema,
   FeedEntrySchema,
   AgentCreatedEntrySchema,
+  BoundEntrySchema,
+  AspirationAddedEntrySchema,
   ProvenanceError,
   computeEntryHash,
   readChain,
@@ -49,9 +52,49 @@ export {
   type ProvenanceEntry,
   type FeedEntry,
   type AgentCreatedEntry,
+  type BoundEntry,
+  type AspirationAddedEntry,
   type EntryDraft,
   type RecordEntryOptions,
 } from './provenance.js';
+
+export {
+  CREDENTIALS_SCHEMA_VERSION,
+  DEFAULT_REGISTRY_URL,
+  CredentialsSchema,
+  CredentialsError,
+  configDir,
+  credentialsPath,
+  loadCredentials,
+  saveCredentials,
+  clearCredentials,
+  type Credentials,
+} from './credentials.js';
+
+export {
+  REGISTRY_STATE_SCHEMA_VERSION,
+  RegistryStateSchema,
+  RegistryStateError,
+  readRegistryState,
+  writeRegistryState,
+  type RegistryState,
+} from './registryState.js';
+
+export {
+  RegistryError,
+  startDeviceCode,
+  pollForToken,
+  bindAgent,
+  addAspiration,
+  type DeviceCodeStart,
+  type TokenResponse,
+  type BindRequest,
+  type BindResponse,
+  type AspirationRequest,
+  type AspirationResponse,
+  type RegistryDeps,
+  type PollDeps,
+} from './registry/index.js';
 
 export {
   AGENT_CONFIG_SCHEMA_VERSION,

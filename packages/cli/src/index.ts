@@ -1,14 +1,26 @@
 import { Command } from 'commander';
 
 import { runAgentsCreate, runAgentsList } from './commands/agents.js';
+import { isAspirationsError, runAspirationsAdd } from './commands/aspirations.js';
+import { isBindError, runBind } from './commands/bind.js';
 import { isUserFacingError, runFeed } from './commands/feed.js';
+import { isLoginError, runLogin, runLogout } from './commands/login.js';
+
+function isUserFacing(err: unknown): err is Error {
+  return (
+    isUserFacingError(err) ||
+    isLoginError(err) ||
+    isBindError(err) ||
+    isAspirationsError(err)
+  );
+}
 
 export function buildProgram(): Command {
   const program = new Command();
   program
     .name('modex')
     .description('Author SKILLS.md from a corpus on your own machine.')
-    .version('0.2.0');
+    .version('0.3.0');
 
   program
     .command('feed')
@@ -46,6 +58,42 @@ export function buildProgram(): Command {
       await runAgentsList();
     });
 
+  program
+    .command('login')
+    .description('Authorize this CLI against a Modex-compatible registry (device-code flow).')
+    .option('--registry <url>', 'Registry base URL (default: https://registry.modex.md)')
+    .action(async (opts: { registry?: string }) => {
+      await runLogin({ registry: opts.registry });
+    });
+
+  program
+    .command('logout')
+    .description('Clear the locally stored registry credentials.')
+    .action(async () => {
+      await runLogout();
+    });
+
+  program
+    .command('bind')
+    .description('Bind a local agent to the registry: upload SKILLS.md + provenance head.')
+    .argument('<agent-id>', 'UUIDv7 of the agent to bind')
+    .action(async (agentId: string) => {
+      await runBind(agentId);
+    });
+
+  const aspirations = program
+    .command('aspirations')
+    .description('Manage an agent\'s aspirations (append-only).');
+
+  aspirations
+    .command('add')
+    .description('Append an aspiration to a bound agent from a markdown file.')
+    .argument('<agent-id>', 'UUIDv7 of the (already bound) agent')
+    .argument('<md-file>', 'Path to a markdown file describing the aspiration')
+    .action(async (agentId: string, mdFile: string) => {
+      await runAspirationsAdd(agentId, mdFile);
+    });
+
   return program;
 }
 
@@ -56,7 +104,7 @@ export async function main(argv: string[]): Promise<number> {
     await program.parseAsync(argv);
     return 0;
   } catch (err: unknown) {
-    if (isUserFacingError(err)) {
+    if (isUserFacing(err)) {
       process.stderr.write(`error: ${err.message}\n`);
       return 1;
     }

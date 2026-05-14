@@ -4,6 +4,25 @@ All notable changes to `modex-cli` are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning will follow [SemVer](https://semver.org/) once we cut a release.
 
+## 0.3.0 — Phase D (unreleased)
+
+### Added
+- `modex login [--registry <url>]` — device-code flow. Prints the verification URL + user code, polls the token endpoint at the server's interval, honors `slow_down` (interval += 5s) and the `expires_in` deadline. On success writes `~/.config/modex/credentials.json` at mode `0600` (`{ schema_version, access_token, registry_url }`).
+- `modex logout` — clears the local credential.
+- `modex bind <agent-id>` — uploads SKILLS.md **content + hash** + provenance-head hash + aspiration hashes to the registry, records a `bound` provenance entry, and writes `.modex/<id>/registry.json` (denormalized bound-state cache). `409` → already-bound message; `401` → credential cleared + re-login prompt.
+- `modex aspirations add <agent-id> <md-file>` — append-only. Requires a prior `bind` (checked locally). POSTs `{ sha256, content }`, then records an `aspiration_added` provenance entry. There is deliberately no edit/delete command.
+- Provenance union gains two kinds: `bound` and `aspiration_added`. Both stay at `schema_version: 1` — see Changed.
+- Registry client (`startDeviceCode`, `pollForToken`, `bindAgent`, `addAspiration`) lives in `@modex/core` so the Phase E MCP server can reuse it. All network calls take an injectable `fetch`/`sleep`/`now` for testing.
+- IPv6 SSRF check now parses hextets (handles compressed/expanded forms and IPv4-mapped addresses) instead of string-prefix matching.
+
+### Changed
+- **`PROVENANCE_SCHEMA_VERSION` stays at 1 — deliberate.** The new `bound` / `aspiration_added` kinds are *additive*: no existing entry shape changed, and `schema_version` tracks per-kind entry shape. A v1 `feed` entry written by Phase C and one written by Phase D are byte-identical. `readChain` gains a forward-compat guard: a v1 entry with an unrecognized `kind` produces an "upgrade modex-cli" error instead of an opaque zod failure.
+- `AgentPaths` gains `registryFile` (`.modex/<id>/registry.json`).
+- Storage model for `bind`: uploads hash **and** full SKILLS.md content (the registry renders it via templates and enforces a token cap — both need the bytes). Aspiration *content* travels via the dedicated aspirations endpoint; the bind body carries aspiration *hashes* only.
+
+### Security
+- `credentials.json` is written `0600` in a `0700` directory, never logged, and cleared automatically on any `401`.
+
 ## 0.2.0 — Phase C (unreleased)
 
 ### Added

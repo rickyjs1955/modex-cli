@@ -94,6 +94,35 @@ describe('loadWebSource SSRF guards', () => {
     ).rejects.toThrow(/private\/loopback/);
   });
 
+  it.each([
+    ['fe80::1', 'link-local'],
+    ['fe80:0000:0000:0000:0000:0000:0000:0001', 'link-local expanded'],
+    ['febf::abcd', 'link-local upper bound'],
+    ['fc00::1', 'unique-local'],
+    ['fd12:3456:789a::1', 'unique-local fd'],
+    ['::ffff:10.0.0.1', 'IPv4-mapped private'],
+    ['::ffff:169.254.169.254', 'IPv4-mapped metadata'],
+    ['::', 'unspecified'],
+  ])('rejects IPv6 %s (%s) via parsed hextets', async (address) => {
+    await expect(
+      loadWebSource('http://host.example/foo', {
+        fetch: makeFetch(ok(htmlPage('<article><p>nope</p></article>'))),
+        dnsLookup: vi.fn(async () => ({ address, family: 6 as const })),
+      }),
+    ).rejects.toThrow(/private\/loopback/);
+  });
+
+  it.each([
+    ['2606:4700:4700::1111', 'public Cloudflare'],
+    ['::ffff:93.184.216.34', 'IPv4-mapped public'],
+  ])('allows public IPv6 %s (%s)', async (address) => {
+    const result = await loadWebSource('https://host.example/article', {
+      fetch: makeFetch(ok(htmlPage('<article><h1>T</h1><p>real article body text</p></article>'))),
+      dnsLookup: vi.fn(async () => ({ address, family: 6 as const })),
+    });
+    expect(result.content).toContain('real article body text');
+  });
+
   it('allows public IPv4', async () => {
     const result = await loadWebSource('https://example.com/article', {
       fetch: makeFetch(ok(htmlPage('<article><h1>Title</h1><p>The body of the article.</p></article>'))),
@@ -171,6 +200,32 @@ describe('loadWebSource fetch guards', () => {
     await expect(
       loadWebSource('https://example.com/start', { fetch: fetcher, dnsLookup: PUBLIC_LOOKUP }),
     ).rejects.toThrow(/non-http\(s\) target/);
+  });
+
+  it('rejects when a redirect hop resolves to a private address', async () => {
+    // First host is public; the redirect target resolves to an internal IP.
+    // The SSRF guard runs per-hop, so the second hop must be refused.
+    const fetcher = vi.fn(async (url: string) => {
+      if (url === 'https://public.example/start') {
+        return new Response('', {
+          status: 302,
+          headers: { location: 'https://internal.evil/secret' },
+        });
+      }
+      return ok(htmlPage('<article><p>should never be reached</p></article>'));
+    }) as unknown as typeof globalThis.fetch;
+
+    const lookup = vi.fn(async (host: string) =>
+      host === 'public.example'
+        ? { address: '93.184.216.34', family: 4 as const }
+        : { address: '10.10.0.5', family: 4 as const },
+    );
+
+    await expect(
+      loadWebSource('https://public.example/start', { fetch: fetcher, dnsLookup: lookup }),
+    ).rejects.toThrow(/private\/loopback/);
+    // Proves the guard fired on hop 2 before fetching the redirect target.
+    expect(lookup).toHaveBeenCalledWith('internal.evil');
   });
 
   it('strips the URL fragment when recording source/source_url', async () => {

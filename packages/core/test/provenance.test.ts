@@ -212,9 +212,91 @@ describe('readChain', () => {
         prev: null,
         entry_sha256: 'a'.repeat(64),
       }) + '\n';
-    const { writeFile } = await import('node:fs/promises');
     await writeFile(path, v0Line, 'utf8');
     await expect(readChain(path)).rejects.toThrow(/schema_version=0/);
     await expect(readChain(path)).rejects.toThrow(/0\.1\.x/);
+  });
+
+  it('rejects an unknown entry kind with an upgrade hint (forward-compat)', async () => {
+    const path = await tempPath();
+    const futureLine =
+      JSON.stringify({
+        schema_version: 1,
+        seq: 1,
+        ts: '2026-05-13T00:00:00.000Z',
+        kind: 'teleported', // a kind from some hypothetical future modex-cli
+        input: {},
+        output: {},
+        prev: null,
+        entry_sha256: 'a'.repeat(64),
+      }) + '\n';
+    await writeFile(path, futureLine, 'utf8');
+    await expect(readChain(path)).rejects.toThrow(/not recognized by this build/);
+    await expect(readChain(path)).rejects.toThrow(/upgrade modex-cli/);
+  });
+});
+
+describe('recordEntry — Phase D kinds', () => {
+  it('records a bound entry and keeps the chain verifiable', async () => {
+    const path = await tempPath();
+    await recordEntry({
+      path,
+      draft: { kind: 'agent_created', input: { name: 'a' }, output: { agent_id: 'id' } },
+      ts: '2026-05-13T00:00:00.000Z',
+    });
+    const bound = await recordEntry({
+      path,
+      draft: {
+        kind: 'bound',
+        input: { skills_md_sha256: SHA, aspiration_sha256s: [] },
+        output: { registry_url: 'https://registry.modex.md', bound_at: '2026-05-14T00:00:00.000Z' },
+      },
+      ts: '2026-05-13T00:01:00.000Z',
+    });
+    expect(bound.kind).toBe('bound');
+    expect(bound.seq).toBe(2);
+    const chain = await readChain(path);
+    expect(chain).toHaveLength(2);
+    verifyChain(chain);
+  });
+
+  it('records an aspiration_added entry and keeps the chain verifiable', async () => {
+    const path = await tempPath();
+    await recordEntry({
+      path,
+      draft: { kind: 'agent_created', input: { name: 'a' }, output: { agent_id: 'id' } },
+      ts: '2026-05-13T00:00:00.000Z',
+    });
+    const asp = await recordEntry({
+      path,
+      draft: {
+        kind: 'aspiration_added',
+        input: { aspiration_sha256: SHB, aspiration_bytes: 42, source: 'goal.md' },
+        output: { registry_url: 'https://registry.modex.md' },
+      },
+      ts: '2026-05-13T00:02:00.000Z',
+    });
+    expect(asp.kind).toBe('aspiration_added');
+    const chain = await readChain(path);
+    expect(chain).toHaveLength(2);
+    if (chain[1]!.kind === 'aspiration_added') {
+      expect(chain[1]!.input.source).toBe('goal.md');
+      expect(chain[1]!.input.aspiration_bytes).toBe(42);
+    }
+    verifyChain(chain);
+  });
+
+  it('rejects a bound draft with a non-hex skills hash', async () => {
+    const path = await tempPath();
+    await expect(
+      recordEntry({
+        path,
+        draft: {
+          kind: 'bound',
+          input: { skills_md_sha256: 'not-hex', aspiration_sha256s: [] },
+          output: { registry_url: 'https://registry.modex.md', bound_at: '2026-05-14T00:00:00.000Z' },
+        },
+      }),
+    ).rejects.toThrow(ProvenanceError);
   });
 });

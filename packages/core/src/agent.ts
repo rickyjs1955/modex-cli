@@ -27,6 +27,9 @@ export interface AgentPaths {
   configFile: string;
   skillsFile: string;
   provenanceFile: string;
+  // Bound-state cache, written by `modex bind`. Absent until the agent is
+  // first bound to a registry.
+  registryFile: string;
 }
 
 export interface AgentRecord {
@@ -52,6 +55,7 @@ function agentPaths(baseDir: string, id: string): AgentPaths {
     configFile: join(dir, 'config.json'),
     skillsFile: join(dir, 'skills.md'),
     provenanceFile: join(dir, 'provenance.jsonl'),
+    registryFile: join(dir, 'registry.json'),
   };
 }
 

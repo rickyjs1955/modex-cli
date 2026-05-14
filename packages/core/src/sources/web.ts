@@ -66,16 +66,88 @@ function isPrivateIPv4(ip: string): boolean {
   return false;
 }
 
-// IPv6: loopback, link-local fe80::/10, unique-local fc00::/7, unspecified ::,
-// and IPv4-mapped (delegated to v4 check).
+// Expand a (possibly compressed) IPv6 string into its 8 numeric hextets.
+// Returns null if the input isn't a parseable IPv6 address. Handles the `::`
+// run and a trailing embedded IPv4 (e.g. ::ffff:1.2.3.4).
+function parseHextets(ip: string): number[] | null {
+  let work = ip.toLowerCase();
+
+  // Split off an embedded IPv4 tail and convert it to two hextets.
+  let ipv4Tail: number[] | null = null;
+  const lastColon = work.lastIndexOf(':');
+  const tail = lastColon >= 0 ? work.slice(lastColon + 1) : work;
+  if (tail.includes('.')) {
+    const octets = tail.split('.').map(Number);
+    if (octets.length !== 4 || octets.some((o) => Number.isNaN(o) || o < 0 || o > 255)) {
+      return null;
+    }
+    ipv4Tail = [
+      (octets[0]! << 8) | octets[1]!,
+      (octets[2]! << 8) | octets[3]!,
+    ];
+    work = work.slice(0, lastColon + 1) + '0:0';
+  }
+
+  const halves = work.split('::');
+  if (halves.length > 2) return null;
+
+  const toGroups = (s: string): number[] | null => {
+    if (s === '') return [];
+    const parts = s.split(':');
+    const groups: number[] = [];
+    for (const p of parts) {
+      if (!/^[0-9a-f]{1,4}$/.test(p)) return null;
+      groups.push(parseInt(p, 16));
+    }
+    return groups;
+  };
+
+  const head = toGroups(halves[0]!);
+  const back = halves.length === 2 ? toGroups(halves[1]!) : [];
+  if (head === null || back === null) return null;
+
+  let groups: number[];
+  if (halves.length === 2) {
+    const fill = 8 - head.length - back.length;
+    if (fill < 1) return null; // `::` must stand for at least one zero group
+    groups = [...head, ...new Array<number>(fill).fill(0), ...back];
+  } else {
+    groups = head;
+  }
+
+  if (ipv4Tail) {
+    // We replaced the IPv4 tail with `0:0` above; swap the real values back in.
+    groups = [...groups.slice(0, 6), ...ipv4Tail];
+  }
+
+  return groups.length === 8 ? groups : null;
+}
+
+// IPv6: loopback ::1, unspecified ::, link-local fe80::/10, unique-local
+// fc00::/7, and IPv4-mapped ::ffff:a.b.c.d (delegated to the v4 check).
 function isPrivateIPv6(ip: string): boolean {
-  const lower = ip.toLowerCase();
-  if (lower === '::1' || lower === '::') return true;
-  if (lower.startsWith('fe8') || lower.startsWith('fe9') || lower.startsWith('fea') || lower.startsWith('feb')) return true;
-  if (lower.startsWith('fc') || lower.startsWith('fd')) return true;
-  // ::ffff:a.b.c.d (IPv4-mapped)
-  const v4Mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (v4Mapped) return isPrivateIPv4(v4Mapped[1]!);
+  const h = parseHextets(ip);
+  if (h === null) return true; // unparseable → treat as unsafe
+
+  // Unspecified :: and loopback ::1
+  if (h.every((g) => g === 0)) return true;
+  if (h.slice(0, 7).every((g) => g === 0) && h[7] === 1) return true;
+
+  // IPv4-mapped ::ffff:0:0/96 → apply the v4 ruleset to the embedded address.
+  if (h.slice(0, 5).every((g) => g === 0) && h[5] === 0xffff) {
+    const a = (h[6]! >> 8) & 0xff;
+    const b = h[6]! & 0xff;
+    const c = (h[7]! >> 8) & 0xff;
+    const d = h[7]! & 0xff;
+    return isPrivateIPv4(`${a}.${b}.${c}.${d}`);
+  }
+
+  const first = h[0]!;
+  // Link-local fe80::/10 → first hextet 0xfe80–0xfebf
+  if (first >= 0xfe80 && first <= 0xfebf) return true;
+  // Unique-local fc00::/7 → first hextet 0xfc00–0xfdff
+  if (first >= 0xfc00 && first <= 0xfdff) return true;
+
   return false;
 }
 

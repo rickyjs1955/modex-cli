@@ -41,6 +41,28 @@ const FeedOutputSchema = z.object({
 const AgentCreatedInputSchema = z.object({ name: z.string() });
 const AgentCreatedOutputSchema = z.object({ agent_id: z.string().min(1) });
 
+// Phase D — registry binding. Both new kinds stay at schema_version 1: they
+// are *additive* (no existing entry shape changed), so the version, which
+// tracks per-kind entry shape, does not move. A v1 `feed` entry written by
+// Phase C and one written by Phase D are byte-identical.
+const BoundInputSchema = z.object({
+  skills_md_sha256: z.string().regex(SHA256_HEX),
+  aspiration_sha256s: z.array(z.string().regex(SHA256_HEX)),
+});
+const BoundOutputSchema = z.object({
+  registry_url: z.string().url(),
+  bound_at: z.string().min(1),
+});
+
+const AspirationAddedInputSchema = z.object({
+  aspiration_sha256: z.string().regex(SHA256_HEX),
+  aspiration_bytes: z.number().int().nonnegative(),
+  source: z.string().min(1),
+});
+const AspirationAddedOutputSchema = z.object({
+  registry_url: z.string().url(),
+});
+
 const BaseEntryFieldsSchema = {
   schema_version: z.literal(PROVENANCE_SCHEMA_VERSION),
   seq: z.number().int().positive(),
@@ -63,13 +85,41 @@ export const AgentCreatedEntrySchema = z.object({
   output: AgentCreatedOutputSchema,
 });
 
+export const BoundEntrySchema = z.object({
+  ...BaseEntryFieldsSchema,
+  kind: z.literal('bound'),
+  input: BoundInputSchema,
+  output: BoundOutputSchema,
+});
+
+export const AspirationAddedEntrySchema = z.object({
+  ...BaseEntryFieldsSchema,
+  kind: z.literal('aspiration_added'),
+  input: AspirationAddedInputSchema,
+  output: AspirationAddedOutputSchema,
+});
+
 export const ProvenanceEntrySchema = z.discriminatedUnion('kind', [
   FeedEntrySchema,
   AgentCreatedEntrySchema,
+  BoundEntrySchema,
+  AspirationAddedEntrySchema,
 ]);
+
+// The set of `kind` values this build understands. Used by readChain to give
+// a friendly "upgrade modex-cli" error when a newer build wrote a kind we
+// don't recognize, instead of zod's cryptic discriminated-union failure.
+export const KNOWN_ENTRY_KINDS = [
+  'feed',
+  'agent_created',
+  'bound',
+  'aspiration_added',
+] as const;
 
 export type FeedEntry = z.infer<typeof FeedEntrySchema>;
 export type AgentCreatedEntry = z.infer<typeof AgentCreatedEntrySchema>;
+export type BoundEntry = z.infer<typeof BoundEntrySchema>;
+export type AspirationAddedEntry = z.infer<typeof AspirationAddedEntrySchema>;
 export type ProvenanceEntry = z.infer<typeof ProvenanceEntrySchema>;
 
 export type EntryDraft =
@@ -83,6 +133,18 @@ export type EntryDraft =
       kind: 'agent_created';
       input: z.input<typeof AgentCreatedInputSchema>;
       output: z.input<typeof AgentCreatedOutputSchema>;
+      ts?: string;
+    }
+  | {
+      kind: 'bound';
+      input: z.input<typeof BoundInputSchema>;
+      output: z.input<typeof BoundOutputSchema>;
+      ts?: string;
+    }
+  | {
+      kind: 'aspiration_added';
+      input: z.input<typeof AspirationAddedInputSchema>;
+      output: z.input<typeof AspirationAddedOutputSchema>;
       ts?: string;
     };
 
@@ -136,6 +198,22 @@ export async function readChain(path: string): Promise<ProvenanceEntry[]> {
         `Line ${i + 1}: provenance entry has schema_version=0 (modex-cli@0.1.x, Phase B). ` +
           `v1 (Phase C) is not backward-compatible: the feed entry shape gained source_kind and source_url. ` +
           `Create a fresh agent under .modex/, or pin to @modex/cli@0.1.x for legacy agents.`,
+      );
+    }
+    // Forward-compat: a v1 entry with a `kind` this build doesn't know was
+    // almost certainly written by a newer modex-cli. Say so plainly rather
+    // than letting zod emit an opaque discriminator error.
+    if (
+      parsedJson !== null &&
+      typeof parsedJson === 'object' &&
+      'kind' in parsedJson &&
+      typeof (parsedJson as { kind: unknown }).kind === 'string' &&
+      !(KNOWN_ENTRY_KINDS as readonly string[]).includes((parsedJson as { kind: string }).kind)
+    ) {
+      throw new ProvenanceError(
+        `Line ${i + 1}: provenance entry kind '${(parsedJson as { kind: string }).kind}' ` +
+          `is not recognized by this build of modex-cli. It was likely written by a newer ` +
+          `version — upgrade modex-cli to read this chain.`,
       );
     }
     const result = ProvenanceEntrySchema.safeParse(parsedJson);

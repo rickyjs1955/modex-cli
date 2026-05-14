@@ -1,6 +1,6 @@
 {
   "name": "@modex/cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "modex-cli — author SKILLS.md from a corpus on your own machine",
   "license": "MIT",
   "type": "module",
