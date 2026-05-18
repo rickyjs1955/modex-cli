@@ -4,7 +4,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { registerAllTools } from './tools/index.js';
 
 export const SERVER_NAME = 'modex-mcp';
-export const SERVER_VERSION = '0.4.0';
+export const SERVER_VERSION = '0.8.0';
 
 // Build an MCP server with every modex tool registered. Transport is the
 // caller's choice — `runStdio` wires stdio for the CLI entry; tests construct

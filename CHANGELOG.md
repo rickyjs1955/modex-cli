@@ -4,6 +4,160 @@ All notable changes to `modex-cli` are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning will follow [SemVer](https://semver.org/) once we cut a release.
 
+## 0.8.0 — Phase I (MCP + GA parity)
+
+> Phase I is the catch-up phase. The MCP server and GitHub Action gain
+> coverage for every verb introduced in Phases F, G, and H — no new business
+> logic, just additive wiring on top of `@modexagents/core`. The three
+> surfaces (CLI, MCP, GA) now expose the same operational language by
+> construction.
+
+### Added (MCP)
+- `modex_aspirations_list` — Phase F.
+- `modex_eval_add`, `modex_eval_list` — Phase F.
+- `modex_eval_run`, `modex_eval_results` — Phase G. `modex_eval_run`
+  needs `ANTHROPIC_API_KEY` in the MCP server's environment, same as
+  `modex_feed` — the CLI-calls-Anthropic design propagates through.
+- `modex_cite` — Phase H. Returns the raw `session_token` in the tool
+  response (so the MCP host can surface it); local provenance stores only its
+  sha256, matching the CLI.
+- Wiring test confirms one of the new tools (`modex_aspirations_list`)
+  dispatches end-to-end through `createServer()` → InMemoryTransport →
+  `runAspirationsList`, and that user-facing errors from `modex_cite` (e.g.
+  unbound agent) round-trip as `isError: true` tool replies.
+
+### Added (GitHub Action)
+- `README` adds documented examples for `eval run`, `eval results`, and
+  pinned to `v0.8.0`. The composite action itself didn't need new inputs
+  — `command: eval`, `args: run <agent-id> --aspiration <hash>` already
+  works on the generic shape.
+
+### Changed
+- All four packages bumped to `0.8.0`: cli, core, mcp, and the GA's docs.
+  cli + core are no-op behavioral bumps; mcp jumps `0.4.0 → 0.8.0` to catch
+  up with the Phase F/G/H release line. This keeps the monorepo on a single
+  version trail going forward.
+- MCP server now advertises 11 tools (was 5). `EXPECTED_TOOLS` in
+  `test/server.test.ts` updated.
+
+### Vocabulary
+The three-verb operational language — **bind** (Phase D), **cite** (Phase H),
+**eval** (Phases F + G) — is now uniformly available across all three
+surfaces. In code, prompts, tool descriptions, help text, README, and
+CHANGELOG, the named things are always `bind` / `cite` / `eval`. Nothing
+named "scenario," "test," "evaluation," "use," "call," "load," "channel," or
+"invoke" — those would create drift.
+
+## 0.7.0 — Phase H (cite)
+
+> Phase H ships the third canonical verb: `cite`. A citation is the act of
+> invoking an agent's SKILLS.md into a session — registered against a
+> specific bind hash so the registry can credit the agent author. Attribution
+> is the moat; the verb names the moat.
+
+### Added
+- `modex cite <agent-id> [--bind-hash <hash>]` registers a citation with the
+  registry. `--bind-hash` defaults to the agent's latest from local
+  `registry.json` (the cached bound-state file written by `modex bind`); the
+  server echoes back the hash it actually cited, which we then record. The
+  raw `session_token` prints to stdout (labelled `session_token:` for
+  scriptable extraction); the local provenance entry stores only its sha256
+  so the chain stays non-secret.
+- New `cite` provenance kind (additive — `PROVENANCE_SCHEMA_VERSION` stays
+  at 1, matching the Phase D / F / G discipline). Records
+  `{bind_hash}` → `{session_token_sha256, registry_url}`.
+- `cite()` registry client function (`POST /v1/agents/{id}/cite`). Bearer
+  auth, 404 mapped to the same NOTES.md-pointer message family used by the
+  eval endpoints. The request body omits `bind_hash` when the caller didn't
+  supply one, letting the server default to the agent's latest snapshot and
+  echo back what it chose.
+- `CiteError` exported from `@modexagents/core` for the invalid-input cases
+  (e.g. non-sha256 `--bind-hash`). `isUserFacingError` includes it.
+
+### Changed
+- The CLI verifies the server's echoed `bind_hash` is a 64-character hex
+  sha256 before writing it to provenance. A malformed echo throws rather
+  than letting bad data into the chain.
+- `@modexagents/cli` and `@modexagents/core` bumped 0.6.0 → 0.7.0.
+  `@modexagents/mcp` stays at 0.4.0 — Phase I is where MCP gains the
+  Phase F/G/H tools.
+
+### Server contract (provisional — see NOTES.md)
+- `POST /v1/agents/{id}/cite` body: `{bind_hash?: string}`. Response:
+  `{session_token: string, bind_hash: string, ...passthrough}`. The server
+  must always echo `bind_hash` (so the client knows which snapshot got cited
+  when it sent no preference).
+- Session token semantics — TTL, single-use vs. refreshable, expected
+  downstream usage — are still undefined on the server side. The CLI treats
+  the token as opaque and surfaces it to the user without further handling.
+
+## 0.6.0 — Phase G (eval execution)
+
+> Phase G ships the execution half of the eval verb. `modex eval run` calls
+> Anthropic locally against the user's own ANTHROPIC_API_KEY, marks the
+> response against the eval's rubric, posts the outcome to the registry, and
+> records an `eval_run` entry in the local provenance chain. `modex eval
+> results` reads back past runs.
+>
+> Key design choice (locked in before Phase G): **CLI calls Anthropic**,
+> not the server. The server is a passive recipient of `{mark,
+> transcript_excerpt}`. The initiating user pays in tokens. This matches the
+> existing `feed` model — no new credential-custody story.
+
+### Added
+- `modex eval run <agent-id> [--eval-id <id> | --aspiration <hash>] [--model <id>]`
+  runs one or more evals against an agent. Resolution rules:
+  - `--aspiration <hash>` → run every eval registered on that aspiration.
+  - `--eval-id <id>` alone → scan the agent's pinned aspirations to find the
+    eval (one `listEvals` per pinned aspiration, until a match).
+  - both → fast path: `listEvals` on the named aspiration, then filter.
+  - neither → error.
+  The agent must have the relevant aspiration pinned locally; this is a
+  client-side ergonomic check ("don't probe behaviors the agent never agreed
+  to") in addition to whatever the server enforces.
+- `modex eval results <agent-id> [--eval-id <id>]` reads past runs from the
+  registry. TSV output: `run_id\tcreated_at\teval_id\tmark\trationale-preview`
+  (mark is `PASS`, `FAIL`, or `NO-MARK` when the eval had no rubric).
+- New `eval_run` provenance kind (additive — `PROVENANCE_SCHEMA_VERSION`
+  stays at 1, matching the Phase D / F discipline). Records `{eval_id,
+  aspiration_sha256, agent_skills_md_sha256, model, run_id, mark_pass,
+  mark_rationale_sha256, transcript_sha256, registry_url}`. The chain stores
+  hashes; the registry has the bytes.
+- `executeEval` in `@modexagents/core` — the two-call model layer:
+  1. RUN: `system = agent's SKILLS.md` (with `cache_control: ephemeral`),
+     `user = eval.text`. Captures the response transcript.
+  2. MARK: if the eval has a `mark_rubric`, a second model call with a forced
+     `emit_mark` tool returns `{pass: boolean, rationale: string}`. Skipped
+     when no rubric is set; `mark` is recorded as `null`.
+- `postEvalRun` / `listEvalRuns` registry client functions
+  (`POST` / `GET /v1/agents/{id}/eval-runs`), bearer-auth on both. 404 mapped
+  to a message pointing at NOTES.md.
+- `MARK_SYSTEM_PROMPT`, `EMIT_MARK_TOOL`, `MarkSchema` exported from
+  `@modexagents/core` for surfaces that want to construct marks directly.
+
+### Changed
+- Transcript handling: the full agent response is hashed for provenance; only
+  the first 8 KB is sent to the registry as `transcript_excerpt` (with a
+  truncation marker line). Marker call sees up to 16 KB of the response.
+- `isEvalError` now also covers `EvalExecutionError`, `AgentError`, and
+  `ProvenanceError` — the Phase G code path can raise any of them.
+- `@modexagents/cli` and `@modexagents/core` bumped 0.5.0 → 0.6.0.
+  `@modexagents/mcp` stays at 0.4.0 — Phase I is where MCP gains the new
+  tools.
+
+### Server contract (provisional — see NOTES.md)
+- `POST /v1/agents/{id}/eval-runs` body: `{eval_id, aspiration_sha256,
+  agent_skills_md_sha256, model, mark | null, transcript_excerpt}`. Response:
+  `{run_id, created_at?}`.
+- `GET /v1/agents/{id}/eval-runs[?eval_id=...]` response: `{runs: [{run_id,
+  eval_id, mark | null, transcript_excerpt, created_at}]}`.
+- A 404 from the eval-run endpoints is again ambiguous (no such agent vs.
+  registry doesn't ship eval-run endpoints yet) — same disambiguation ask
+  as Phase F.
+- Mark format `{pass: boolean, rationale: string}` is locked in. Future
+  extensions (numeric scores, multi-axis rubrics) need a `mark_version` or
+  similar.
+
 ## 0.5.0 — Phase F (eval verb arrives; aspirations get a list view)
 
 > Introduces the `eval` verb. An **eval** is a parent-defined probe of an

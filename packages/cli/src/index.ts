@@ -5,8 +5,11 @@ import {
   runAspirationsAdd,
   runAspirationsList,
   runBind,
+  runCite,
   runEvalAdd,
   runEvalList,
+  runEvalResults,
+  runEvalRun,
   runFeed,
   runLogin,
   runLogout,
@@ -18,7 +21,7 @@ export function buildProgram(): Command {
   program
     .name('modex')
     .description('Author SKILLS.md from a corpus on your own machine.')
-    .version('0.5.0');
+    .version('0.8.0');
 
   program
     .command('feed')
@@ -138,6 +141,54 @@ export function buildProgram(): Command {
     .argument('<aspiration-hash>', 'sha256 of the aspiration')
     .action(async (aspirationHash: string) => {
       await runEvalList(aspirationHash);
+    });
+
+  evalCmd
+    .command('run')
+    .description(
+      'Run one or more evals against an agent. Calls the model locally (your ANTHROPIC_API_KEY), then reports the outcome to the registry. Specify --eval-id, --aspiration, or both.',
+    )
+    .argument('<agent-id>', 'UUIDv7 of the agent to probe')
+    .option('--eval-id <id>', 'Run a specific eval by id')
+    .option(
+      '--aspiration <hash>',
+      'Run every eval registered on this aspiration (must be pinned to the agent)',
+    )
+    .option('--model <id>', 'Anthropic model id to use (default: Claude Haiku 4.5)')
+    .action(
+      async (
+        agentId: string,
+        opts: { evalId?: string; aspiration?: string; model?: string },
+      ) => {
+        await runEvalRun(agentId, {
+          evalId: opts.evalId,
+          aspirationHash: opts.aspiration,
+          model: opts.model,
+        });
+      },
+    );
+
+  evalCmd
+    .command('results')
+    .description('Show past eval runs for an agent from the registry.')
+    .argument('<agent-id>', 'UUIDv7 of the agent')
+    .option('--eval-id <id>', 'Filter to runs of a specific eval')
+    .action(async (agentId: string, opts: { evalId?: string }) => {
+      await runEvalResults(agentId, { evalId: opts.evalId });
+    });
+
+  program
+    .command('cite')
+    .description(
+      'Register a citation of an agent\'s SKILLS.md at a specific bind hash. Prints a session_token for downstream attribution; records the citation locally (session_token is stored as sha256 only).',
+    )
+    .argument('<agent-id>', 'UUIDv7 of the (already bound) agent')
+    .option(
+      '--bind-hash <hash>',
+      'sha256 of a specific bound snapshot (default: the agent\'s latest from registry.json)',
+    )
+    .action(async (agentId: string, opts: { bindHash?: string }) => {
+      await runCite(agentId, { bindHash: opts.bindHash });
     });
 
   return program;

@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createAgent } from '@modexagents/core';
+import { createAgent, recordEntry } from '@modexagents/core';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { CallToolResult, ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
@@ -19,7 +19,13 @@ const EXPECTED_TOOLS = [
   'modex_agents_create',
   'modex_agents_list',
   'modex_aspirations_add',
+  'modex_aspirations_list',
   'modex_bind',
+  'modex_cite',
+  'modex_eval_add',
+  'modex_eval_list',
+  'modex_eval_results',
+  'modex_eval_run',
   'modex_feed',
 ];
 
@@ -83,6 +89,52 @@ describe('modex-mcp server', () => {
     expect(payload.agents).toHaveLength(1);
     expect(payload.agents[0].agentId).toBe(agent.config.id);
     expect(payload.agents[0].name).toBe('demo');
+  });
+
+  it('routes modex_aspirations_list through core and returns the populated list', async () => {
+    // Local-only op (no fetch needed) so it's the cleanest end-to-end check
+    // that the Phase F/G/H wiring through MCP actually dispatches to core.
+    const agent = await createAgent({ baseDir: tmpDir, name: 'cited' });
+    const provenanceFile = join(tmpDir, '.modex', agent.config.id, 'provenance.jsonl');
+    await recordEntry({
+      path: provenanceFile,
+      draft: {
+        kind: 'aspiration_added',
+        input: {
+          aspiration_sha256: 'a'.repeat(64),
+          aspiration_bytes: 10,
+          source: 'honesty.md',
+        },
+        output: { registry_url: 'https://registry.example' },
+      },
+      ts: '2026-05-18T01:00:00.000Z',
+    });
+
+    const client = await makeClientPair();
+    const result = (await client.callTool({
+      name: 'modex_aspirations_list',
+      arguments: { agentId: agent.config.id },
+    })) as CallToolResult;
+
+    expect(result.isError).toBeFalsy();
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.agentId).toBe(agent.config.id);
+    expect(payload.aspirations).toHaveLength(1);
+    expect(payload.aspirations[0].source).toBe('honesty.md');
+  });
+
+  it('routes modex_cite errors back to the client as isError replies', async () => {
+    // No credentials → CredentialsError → user-facing → isError reply.
+    const agent = await createAgent({ baseDir: tmpDir, name: 'cite-target' });
+    const client = await makeClientPair();
+    const result = (await client.callTool({
+      name: 'modex_cite',
+      arguments: { agentId: agent.config.id },
+    })) as CallToolResult;
+    expect(result.isError).toBe(true);
+    const text = (result.content[0] as { text: string }).text;
+    expect(text).toMatch(/^error: /);
+    expect(text).toMatch(/login/i);
   });
 
   it('returns an isError reply when bind is invoked without credentials', async () => {

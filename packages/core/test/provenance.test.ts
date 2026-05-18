@@ -301,6 +301,169 @@ describe('recordEntry — Phase D kinds', () => {
   });
 });
 
+describe('recordEntry — Phase G eval_run', () => {
+  it('records an eval_run with a pass mark and keeps the chain verifiable', async () => {
+    const path = await tempPath();
+    await recordEntry({
+      path,
+      draft: { kind: 'agent_created', input: { name: 'a' }, output: { agent_id: 'id' } },
+      ts: '2026-05-13T00:00:00.000Z',
+    });
+    const evalRun = await recordEntry({
+      path,
+      draft: {
+        kind: 'eval_run',
+        input: {
+          eval_id: 'eval_abc',
+          aspiration_sha256: SHA,
+          agent_skills_md_sha256: SHB,
+          model: 'claude-haiku-4-5-20251001',
+        },
+        output: {
+          run_id: 'run_xyz',
+          mark_pass: true,
+          mark_rationale_sha256: 'c'.repeat(64),
+          transcript_sha256: 'd'.repeat(64),
+          registry_url: 'https://registry.modex.md',
+        },
+      },
+      ts: '2026-05-13T00:03:00.000Z',
+    });
+    expect(evalRun.kind).toBe('eval_run');
+    expect(evalRun.seq).toBe(2);
+    const chain = await readChain(path);
+    expect(chain).toHaveLength(2);
+    verifyChain(chain);
+    if (chain[1]!.kind === 'eval_run') {
+      expect(chain[1]!.output.run_id).toBe('run_xyz');
+      expect(chain[1]!.output.mark_pass).toBe(true);
+    }
+  });
+
+  it('records an eval_run with mark_pass=null (eval had no rubric)', async () => {
+    const path = await tempPath();
+    await recordEntry({
+      path,
+      draft: { kind: 'agent_created', input: { name: 'a' }, output: { agent_id: 'id' } },
+      ts: '2026-05-13T00:00:00.000Z',
+    });
+    await recordEntry({
+      path,
+      draft: {
+        kind: 'eval_run',
+        input: {
+          eval_id: 'eval_no_rubric',
+          aspiration_sha256: SHA,
+          agent_skills_md_sha256: SHB,
+          model: 'claude-haiku-4-5-20251001',
+        },
+        output: {
+          run_id: 'run_2',
+          mark_pass: null,
+          mark_rationale_sha256: null,
+          transcript_sha256: 'd'.repeat(64),
+          registry_url: 'https://registry.modex.md',
+        },
+      },
+      ts: '2026-05-13T00:04:00.000Z',
+    });
+    const chain = await readChain(path);
+    expect(chain).toHaveLength(2);
+    verifyChain(chain);
+  });
+
+  it('rejects an eval_run draft with a non-hex transcript hash', async () => {
+    const path = await tempPath();
+    await expect(
+      recordEntry({
+        path,
+        draft: {
+          kind: 'eval_run',
+          input: {
+            eval_id: 'eval_abc',
+            aspiration_sha256: SHA,
+            agent_skills_md_sha256: SHB,
+            model: 'm',
+          },
+          output: {
+            run_id: 'r',
+            mark_pass: true,
+            mark_rationale_sha256: 'c'.repeat(64),
+            transcript_sha256: 'not-hex',
+            registry_url: 'https://registry.modex.md',
+          },
+        },
+      }),
+    ).rejects.toThrow(ProvenanceError);
+  });
+});
+
+describe('recordEntry — Phase H cite', () => {
+  it('records a cite entry and keeps the chain verifiable', async () => {
+    const path = await tempPath();
+    await recordEntry({
+      path,
+      draft: { kind: 'agent_created', input: { name: 'a' }, output: { agent_id: 'id' } },
+      ts: '2026-05-13T00:00:00.000Z',
+    });
+    const c = await recordEntry({
+      path,
+      draft: {
+        kind: 'cite',
+        input: { bind_hash: SHA },
+        output: {
+          session_token_sha256: SHB,
+          registry_url: 'https://registry.modex.md',
+        },
+      },
+      ts: '2026-05-13T00:05:00.000Z',
+    });
+    expect(c.kind).toBe('cite');
+    expect(c.seq).toBe(2);
+    const chain = await readChain(path);
+    expect(chain).toHaveLength(2);
+    verifyChain(chain);
+    if (chain[1]!.kind === 'cite') {
+      expect(chain[1]!.input.bind_hash).toBe(SHA);
+      expect(chain[1]!.output.session_token_sha256).toBe(SHB);
+    }
+  });
+
+  it('rejects a cite draft with a non-hex bind_hash', async () => {
+    const path = await tempPath();
+    await expect(
+      recordEntry({
+        path,
+        draft: {
+          kind: 'cite',
+          input: { bind_hash: 'not-hex' },
+          output: {
+            session_token_sha256: SHB,
+            registry_url: 'https://registry.modex.md',
+          },
+        },
+      }),
+    ).rejects.toThrow(ProvenanceError);
+  });
+
+  it('rejects a cite draft with a non-hex session_token_sha256', async () => {
+    const path = await tempPath();
+    await expect(
+      recordEntry({
+        path,
+        draft: {
+          kind: 'cite',
+          input: { bind_hash: SHA },
+          output: {
+            session_token_sha256: 'also-not-hex',
+            registry_url: 'https://registry.modex.md',
+          },
+        },
+      }),
+    ).rejects.toThrow(ProvenanceError);
+  });
+});
+
 describe('recordEntry — concurrency', () => {
   it('serializes concurrent appends into a verifiable chain', async () => {
     const path = await tempPath();

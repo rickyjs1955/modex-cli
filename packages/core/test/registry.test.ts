@@ -4,11 +4,15 @@ import {
   addAspiration,
   addEval,
   bindAgent,
+  cite,
+  listEvalRuns,
   listEvals,
   pollForToken,
+  postEvalRun,
   RegistryError,
   startDeviceCode,
   type DeviceCodeStart,
+  type EvalRunRequest,
 } from '../src/registry/index.js';
 
 const REGISTRY = 'https://registry.example';
@@ -304,5 +308,173 @@ describe('listEvals', () => {
       (e: RegistryError) => e,
     );
     expect((err as RegistryError).status).toBeNull();
+  });
+});
+
+const SHA64 = 'd'.repeat(64);
+const SHB64 = 'e'.repeat(64);
+
+describe('postEvalRun', () => {
+  const body: EvalRunRequest = {
+    eval_id: 'eval_abc',
+    aspiration_sha256: SHA64,
+    agent_skills_md_sha256: SHB64,
+    model: 'claude-haiku-4-5-20251001',
+    mark: { pass: true, rationale: 'satisfied the rubric' },
+    transcript_excerpt: 'agent response',
+  };
+
+  it('posts to /v1/agents/{id}/eval-runs with bearer auth', async () => {
+    const { fetch, calls } = scriptedFetch([
+      jsonResponse(201, { run_id: 'run_xyz', created_at: '2026-05-15T01:00:00Z' }),
+    ]);
+    const result = await postEvalRun(REGISTRY, 'agent-1', 'tok_live', body, { fetch });
+    expect(result.run_id).toBe('run_xyz');
+    expect(calls[0]!.url).toBe('https://registry.example/v1/agents/agent-1/eval-runs');
+    expect((calls[0]!.init?.headers as Record<string, string>)['authorization']).toBe(
+      'Bearer tok_live',
+    );
+    expect(JSON.parse(String(calls[0]!.init?.body))).toEqual(body);
+  });
+
+  it('accepts mark=null (eval had no rubric)', async () => {
+    const { fetch } = scriptedFetch([jsonResponse(201, { run_id: 'run_2' })]);
+    await expect(
+      postEvalRun(REGISTRY, 'agent-1', 'tok', { ...body, mark: null }, { fetch }),
+    ).resolves.toMatchObject({ run_id: 'run_2' });
+  });
+
+  it('maps 404 to a NOTES-pointer message', async () => {
+    const { fetch } = scriptedFetch([jsonResponse(404, { error: 'not_found' })]);
+    const err = await postEvalRun(REGISTRY, 'agent-1', 'tok', body, { fetch }).catch(
+      (e: RegistryError) => e,
+    );
+    expect((err as RegistryError).status).toBe(404);
+    expect((err as RegistryError).message).toMatch(/NOTES\.md/);
+  });
+
+  it('maps 401 to a token-invalid RegistryError', async () => {
+    const { fetch } = scriptedFetch([jsonResponse(401, { error: 'invalid_token' })]);
+    const err = await postEvalRun(REGISTRY, 'agent-1', 'tok', body, { fetch }).catch(
+      (e: RegistryError) => e,
+    );
+    expect((err as RegistryError).status).toBe(401);
+  });
+
+  it('rejects a missing run_id in the response', async () => {
+    const { fetch } = scriptedFetch([jsonResponse(201, { created_at: 'x' })]);
+    await expect(
+      postEvalRun(REGISTRY, 'agent-1', 'tok', body, { fetch }),
+    ).rejects.toThrow(/malformed/);
+  });
+});
+
+describe('listEvalRuns', () => {
+  it('GETs without a query param when no filter is supplied', async () => {
+    const { fetch, calls } = scriptedFetch([
+      jsonResponse(200, {
+        runs: [
+          {
+            run_id: 'run_a',
+            eval_id: 'eval_x',
+            mark: { pass: true, rationale: 'ok' },
+            transcript_excerpt: 'agent said',
+            created_at: '2026-05-15T01:00:00Z',
+          },
+        ],
+      }),
+    ]);
+    const result = await listEvalRuns(REGISTRY, 'agent-1', 'tok_live', {}, { fetch });
+    expect(result.runs).toHaveLength(1);
+    expect(calls[0]!.url).toBe('https://registry.example/v1/agents/agent-1/eval-runs');
+    expect(calls[0]!.init?.method).toBe('GET');
+  });
+
+  it('adds ?eval_id=... when filtering', async () => {
+    const { fetch, calls } = scriptedFetch([jsonResponse(200, { runs: [] })]);
+    await listEvalRuns(REGISTRY, 'agent-1', 'tok', { evalId: 'eval_x' }, { fetch });
+    expect(calls[0]!.url).toBe(
+      'https://registry.example/v1/agents/agent-1/eval-runs?eval_id=eval_x',
+    );
+  });
+
+  it('accepts mark=null on a returned run', async () => {
+    const { fetch } = scriptedFetch([
+      jsonResponse(200, {
+        runs: [
+          {
+            run_id: 'run_a',
+            eval_id: 'eval_x',
+            mark: null,
+            transcript_excerpt: 'no rubric run',
+          },
+        ],
+      }),
+    ]);
+    const result = await listEvalRuns(REGISTRY, 'agent-1', 'tok', {}, { fetch });
+    expect(result.runs[0]!.mark).toBeNull();
+  });
+
+  it('maps 404 to a NOTES-pointer message', async () => {
+    const { fetch } = scriptedFetch([jsonResponse(404, { error: 'not_found' })]);
+    const err = await listEvalRuns(REGISTRY, 'agent-1', 'tok', {}, { fetch }).catch(
+      (e: RegistryError) => e,
+    );
+    expect((err as RegistryError).status).toBe(404);
+    expect((err as RegistryError).message).toMatch(/NOTES\.md/);
+  });
+});
+
+describe('cite', () => {
+  const BIND_HASH = 'f'.repeat(64);
+
+  it('posts with bind_hash when supplied and returns the parsed response', async () => {
+    const { fetch, calls } = scriptedFetch([
+      jsonResponse(200, { session_token: 'tok_session_xyz', bind_hash: BIND_HASH }),
+    ]);
+    const result = await cite(
+      REGISTRY,
+      'agent-1',
+      'tok_live',
+      { bind_hash: BIND_HASH },
+      { fetch },
+    );
+    expect(result.session_token).toBe('tok_session_xyz');
+    expect(result.bind_hash).toBe(BIND_HASH);
+    expect(calls[0]!.url).toBe('https://registry.example/v1/agents/agent-1/cite');
+    expect((calls[0]!.init?.headers as Record<string, string>)['authorization']).toBe(
+      'Bearer tok_live',
+    );
+    expect(JSON.parse(String(calls[0]!.init?.body))).toEqual({ bind_hash: BIND_HASH });
+  });
+
+  it('posts an empty body when bind_hash is omitted (server defaults)', async () => {
+    const { fetch, calls } = scriptedFetch([
+      jsonResponse(200, { session_token: 'tok_y', bind_hash: BIND_HASH }),
+    ]);
+    await cite(REGISTRY, 'agent-1', 'tok', {}, { fetch });
+    expect(JSON.parse(String(calls[0]!.init?.body))).toEqual({});
+  });
+
+  it('maps 404 to a NOTES-pointer message', async () => {
+    const { fetch } = scriptedFetch([jsonResponse(404, { error: 'not_found' })]);
+    const err = await cite(REGISTRY, 'agent-1', 'tok', {}, { fetch }).catch(
+      (e: RegistryError) => e,
+    );
+    expect((err as RegistryError).status).toBe(404);
+    expect((err as RegistryError).message).toMatch(/NOTES\.md/);
+  });
+
+  it('maps 401 to a token-invalid RegistryError', async () => {
+    const { fetch } = scriptedFetch([jsonResponse(401, { error: 'invalid_token' })]);
+    const err = await cite(REGISTRY, 'agent-1', 'tok', {}, { fetch }).catch(
+      (e: RegistryError) => e,
+    );
+    expect((err as RegistryError).status).toBe(401);
+  });
+
+  it('rejects a response missing session_token', async () => {
+    const { fetch } = scriptedFetch([jsonResponse(200, { bind_hash: BIND_HASH })]);
+    await expect(cite(REGISTRY, 'agent-1', 'tok', {}, { fetch })).rejects.toThrow(/malformed/);
   });
 });

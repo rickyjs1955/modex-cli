@@ -39,14 +39,27 @@ Add to your `claude.json` (or via `claude mcp add`):
 | `modex_agents_list` | List all agents in the current working directory. |
 | `modex_bind` | Upload SKILLS.md + provenance head to the registry. |
 | `modex_aspirations_add` | Append an aspiration (append-only). |
+| `modex_aspirations_list` | Show aspirations pinned to an agent (local read of provenance). |
+| `modex_eval_add` | Register an eval against an aspiration. |
+| `modex_eval_list` | List evals registered on an aspiration. |
+| `modex_eval_run` | Run one or more evals against an agent — calls Anthropic, marks, posts outcome. |
+| `modex_eval_results` | Read past eval runs for an agent from the registry. |
+| `modex_cite` | Register a citation of an agent's SKILLS.md at a specific bind hash. Returns a session token. |
 
-`modex_feed` needs `ANTHROPIC_API_KEY` in the server's environment.
+`modex_feed` and `modex_eval_run` need `ANTHROPIC_API_KEY` in the server's
+environment.
 
-`modex_bind` and `modex_aspirations_add` need a credential file at
+`modex_bind`, `modex_aspirations_add`, `modex_aspirations_list` (no — local
+only), `modex_eval_*`, and `modex_cite` need a credential file at
 `~/.config/modex/credentials.json`. The MCP surface deliberately does **not**
 expose `login` / `logout` — device-code auth needs an interactive terminal.
 Run `modex login` once from a real terminal; the MCP server picks up the same
 file.
+
+`modex_cite` returns the raw `session_token` in its tool response — the MCP
+host surfaces it to the user so it can be used downstream. The local
+provenance entry stores only its sha256; the raw token never lands on disk
+via modex.
 
 ## License
 

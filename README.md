@@ -47,11 +47,30 @@ modex aspirations list <agent-id>                                   # find the a
 modex eval add <aspiration-hash> --text "<prompt>" \
                                  --mark-rubric "<criteria>"          # register a new eval
 modex eval list <aspiration-hash>                                   # see all evals on that aspiration
+
+# Execution — calls Anthropic against your own ANTHROPIC_API_KEY, marks the
+# response, and reports the outcome to the registry.
+modex eval run <agent-id> --aspiration <hash>                       # run every eval on this aspiration
+modex eval run <agent-id> --eval-id <id>                            # run one specific eval
+modex eval results <agent-id> [--eval-id <id>]                      # read back past runs from the registry
 ```
 
-Eval *execution* (`modex eval run`) lands in Phase G. Today, `eval add` and
-`eval list` are the authoring surface — what to ask, and what's already been
-asked.
+`eval run` records an `eval_run` entry in the agent's local provenance chain
+(hash of the transcript + the mark rationale; the registry keeps the bytes).
+
+## Citing
+
+A **cite** registers an invocation of an agent's SKILLS.md at a specific
+bind hash with the registry. The registry can then credit the agent author
+for the use; you get back a session token to pass downstream.
+
+```sh
+modex cite <agent-id>                          # default: latest bind hash
+modex cite <agent-id> --bind-hash <sha256>     # cite a specific snapshot
+```
+
+The session token prints to stdout, labelled `session_token:`. Local
+provenance stores only its sha256 — the raw token is never written to disk.
 
 ## Companion surfaces
 
@@ -60,11 +79,12 @@ shared `@modexagents/core` engine:
 
 - **`@modexagents/cli`** — the terminal command shown above.
 - **`@modexagents/mcp`** — a Model Context Protocol server (`modex-mcp`) that
-  exposes `feed`, `agents create/list`, `bind`, and `aspirations add` as tools
-  to MCP hosts (Claude Code, Cursor, Claude Desktop). See [packages/mcp/](packages/mcp/).
+  exposes the full verb set (`feed`, `agents`, `bind`, `aspirations`, `eval`,
+  `cite`) as tools to MCP hosts (Claude Code, Cursor, Claude Desktop). See
+  [packages/mcp/](packages/mcp/).
 - **GitHub Action** at [packages/github-action/](packages/github-action/) —
   wraps the CLI in a workflow step. Use `modex-token` to bypass the
-  interactive login for CI.
+  interactive login for CI. Supports the eval-on-PR pattern.
 
 ## Contributing
 

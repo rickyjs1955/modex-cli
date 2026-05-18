@@ -9,7 +9,7 @@ a secret, and runs one `modex` subcommand.
 ### Extract new skills from a PR's changed docs
 
 ```yaml
-- uses: rickyjs1955/modex-cli/packages/github-action@v0.4.0
+- uses: rickyjs1955/modex-cli/packages/github-action@v0.8.0
   with:
     command: feed
     args: 0190f8c2-7c00-7c00-8000-000000000000 ./docs/*.md
@@ -19,10 +19,38 @@ a secret, and runs one `modex` subcommand.
 ### Bind a SKILLS.md to the registry on every push to `main`
 
 ```yaml
-- uses: rickyjs1955/modex-cli/packages/github-action@v0.4.0
+- uses: rickyjs1955/modex-cli/packages/github-action@v0.8.0
   with:
     command: bind
     args: 0190f8c2-7c00-7c00-8000-000000000000
+    modex-token: ${{ secrets.MODEX_TOKEN }}
+```
+
+### Run evals against an agent on every PR (the eval-on-PR pattern)
+
+```yaml
+- uses: rickyjs1955/modex-cli/packages/github-action@v0.8.0
+  with:
+    command: eval
+    # Run every eval registered on the named aspiration. Use --eval-id <id>
+    # to scope to one.
+    args: run 0190f8c2-7c00-7c00-8000-000000000000 --aspiration <aspiration-sha256>
+    anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+    modex-token: ${{ secrets.MODEX_TOKEN }}
+```
+
+`eval run` calls Anthropic on the runner (your `ANTHROPIC_API_KEY`), marks
+the response, posts the outcome back to the registry, and appends an
+`eval_run` entry to the agent's local provenance chain. Use the action's
+exit code to fail the PR check when a run fails.
+
+### Read past eval results
+
+```yaml
+- uses: rickyjs1955/modex-cli/packages/github-action@v0.8.0
+  with:
+    command: eval
+    args: results 0190f8c2-7c00-7c00-8000-000000000000
     modex-token: ${{ secrets.MODEX_TOKEN }}
 ```
 

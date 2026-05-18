@@ -1,8 +1,18 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import { registerAgentsCreateTool, registerAgentsListTool } from './agents.js';
-import { registerAspirationsAddTool } from './aspirations.js';
+import {
+  registerAspirationsAddTool,
+  registerAspirationsListTool,
+} from './aspirations.js';
 import { registerBindTool } from './bind.js';
+import { registerCiteTool } from './cite.js';
+import {
+  registerEvalAddTool,
+  registerEvalListTool,
+  registerEvalResultsTool,
+  registerEvalRunTool,
+} from './evals.js';
 import { registerFeedTool } from './feed.js';
 
 // Login / logout deliberately omitted from the MCP surface: device-code
@@ -16,6 +26,12 @@ export function registerAllTools(server: McpServer): void {
   registerAgentsListTool(server);
   registerBindTool(server);
   registerAspirationsAddTool(server);
+  registerAspirationsListTool(server);
+  registerEvalAddTool(server);
+  registerEvalListTool(server);
+  registerEvalRunTool(server);
+  registerEvalResultsTool(server);
+  registerCiteTool(server);
 }
 
 export {
@@ -24,4 +40,10 @@ export {
   registerAgentsListTool,
   registerBindTool,
   registerAspirationsAddTool,
+  registerAspirationsListTool,
+  registerEvalAddTool,
+  registerEvalListTool,
+  registerEvalRunTool,
+  registerEvalResultsTool,
+  registerCiteTool,
 };

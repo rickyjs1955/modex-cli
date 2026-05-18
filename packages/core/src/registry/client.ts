@@ -5,6 +5,9 @@ import {
   type BindRequest,
   type BindResponse,
   BindResponseSchema,
+  type CiteRequest,
+  type CiteResponse,
+  CiteResponseSchema,
   type DeviceCodeStart,
   DeviceCodeStartSchema,
   type EvalAddRequest,
@@ -12,6 +15,11 @@ import {
   EvalAddResponseSchema,
   type EvalListResponse,
   EvalListResponseSchema,
+  type EvalRunRequest,
+  type EvalRunResponse,
+  EvalRunResponseSchema,
+  type EvalRunsListResponse,
+  EvalRunsListResponseSchema,
   RegistryError,
   type TokenResponse,
   TokenResponseSchema,
@@ -399,6 +407,150 @@ export async function listEvals(
   if (!parsed.success) {
     throw new RegistryError(
       `Registry eval-list response was malformed: ${parsed.error.issues
+        .map((i) => `${i.path.join('.')}: ${i.message}`)
+        .join('; ')}`,
+      { status },
+    );
+  }
+  return parsed.data;
+}
+
+// --- Eval runs (Phase G) --------------------------------------------------
+
+const EVAL_RUN_404_MESSAGE =
+  'Registry returned 404. Either the agent does not exist, or this ' +
+  'registry build does not yet expose the eval-run endpoints. See NOTES.md ' +
+  '(top of repo) for the current API contract status.';
+
+export async function postEvalRun(
+  registryUrl: string,
+  agentId: string,
+  token: string,
+  body: EvalRunRequest,
+  deps?: RegistryDeps,
+): Promise<EvalRunResponse> {
+  const { fetch } = resolveDeps(deps);
+  const { status, json } = await postJson(
+    fetch,
+    endpoint(registryUrl, `/v1/agents/${encodeURIComponent(agentId)}/eval-runs`),
+    body,
+    token,
+  );
+
+  if (status === 401) {
+    throw new RegistryError('Your registry token is no longer valid.', {
+      status,
+      code: bodyErrorCode(json),
+    });
+  }
+  if (status === 404) {
+    throw new RegistryError(EVAL_RUN_404_MESSAGE, { status, code: bodyErrorCode(json) });
+  }
+  if (status < 200 || status >= 300) {
+    throw new RegistryError(`Registry rejected the eval run (HTTP ${status}).`, {
+      status,
+      code: bodyErrorCode(json),
+    });
+  }
+
+  const parsed = EvalRunResponseSchema.safeParse(json);
+  if (!parsed.success) {
+    throw new RegistryError(
+      `Registry eval-run response was malformed: ${parsed.error.issues
+        .map((i) => `${i.path.join('.')}: ${i.message}`)
+        .join('; ')}`,
+      { status },
+    );
+  }
+  return parsed.data;
+}
+
+export async function listEvalRuns(
+  registryUrl: string,
+  agentId: string,
+  token: string,
+  filter: { evalId?: string } = {},
+  deps?: RegistryDeps,
+): Promise<EvalRunsListResponse> {
+  const { fetch } = resolveDeps(deps);
+  const base = `/v1/agents/${encodeURIComponent(agentId)}/eval-runs`;
+  const query = filter.evalId ? `?eval_id=${encodeURIComponent(filter.evalId)}` : '';
+  const { status, json } = await getJson(
+    fetch,
+    endpoint(registryUrl, base + query),
+    token,
+  );
+
+  if (status === 401) {
+    throw new RegistryError('Your registry token is no longer valid.', {
+      status,
+      code: bodyErrorCode(json),
+    });
+  }
+  if (status === 404) {
+    throw new RegistryError(EVAL_RUN_404_MESSAGE, { status, code: bodyErrorCode(json) });
+  }
+  if (status < 200 || status >= 300) {
+    throw new RegistryError(`Registry rejected the eval-run list (HTTP ${status}).`, {
+      status,
+      code: bodyErrorCode(json),
+    });
+  }
+
+  const parsed = EvalRunsListResponseSchema.safeParse(json);
+  if (!parsed.success) {
+    throw new RegistryError(
+      `Registry eval-run list response was malformed: ${parsed.error.issues
+        .map((i) => `${i.path.join('.')}: ${i.message}`)
+        .join('; ')}`,
+      { status },
+    );
+  }
+  return parsed.data;
+}
+
+// --- Cite (Phase H) -------------------------------------------------------
+
+const CITE_404_MESSAGE =
+  'Registry returned 404. Either the agent does not exist (or has not been ' +
+  'bound), or this registry build does not yet expose the cite endpoint. ' +
+  'See NOTES.md (top of repo) for the current API contract status.';
+
+export async function cite(
+  registryUrl: string,
+  agentId: string,
+  token: string,
+  body: CiteRequest,
+  deps?: RegistryDeps,
+): Promise<CiteResponse> {
+  const { fetch } = resolveDeps(deps);
+  const { status, json } = await postJson(
+    fetch,
+    endpoint(registryUrl, `/v1/agents/${encodeURIComponent(agentId)}/cite`),
+    body,
+    token,
+  );
+
+  if (status === 401) {
+    throw new RegistryError('Your registry token is no longer valid.', {
+      status,
+      code: bodyErrorCode(json),
+    });
+  }
+  if (status === 404) {
+    throw new RegistryError(CITE_404_MESSAGE, { status, code: bodyErrorCode(json) });
+  }
+  if (status < 200 || status >= 300) {
+    throw new RegistryError(`Registry rejected the cite (HTTP ${status}).`, {
+      status,
+      code: bodyErrorCode(json),
+    });
+  }
+
+  const parsed = CiteResponseSchema.safeParse(json);
+  if (!parsed.success) {
+    throw new RegistryError(
+      `Registry cite response was malformed: ${parsed.error.issues
         .map((i) => `${i.path.join('.')}: ${i.message}`)
         .join('; ')}`,
       { status },

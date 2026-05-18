@@ -1,6 +1,6 @@
 {
   "name": "@modexagents/core",
-  "version": "0.5.0",
+  "version": "0.8.0",
   "description": "Core extraction, canonical SKILLS.md serialization, hash-chained provenance, and registry client for modex-cli",
   "license": "MIT",
   "type": "module",

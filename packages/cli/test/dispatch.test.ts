@@ -15,6 +15,7 @@ describe('buildProgram', () => {
       'agents',
       'aspirations',
       'bind',
+      'cite',
       'eval',
       'feed',
       'login',
@@ -37,7 +38,12 @@ describe('buildProgram', () => {
   it('wires the eval subcommands', () => {
     const program = buildProgram();
     const evalCmd = program.commands.find((c) => c.name() === 'eval');
-    expect(evalCmd?.commands.map((c) => c.name()).sort()).toEqual(['add', 'list']);
+    expect(evalCmd?.commands.map((c) => c.name()).sort()).toEqual([
+      'add',
+      'list',
+      'results',
+      'run',
+    ]);
   });
 });
 

@@ -64,6 +64,45 @@ const AspirationAddedOutputSchema = z.object({
   registry_url: z.string().url(),
 });
 
+// Phase G — eval execution. Additive: schema_version stays at 1.
+//
+// What's recorded: which eval was probed (eval_id, aspiration_sha256), which
+// snapshot of the agent answered (agent_skills_md_sha256), which model ran
+// the probe, and the outcome — pass/fail + sha256s of the mark rationale and
+// transcript. The rationale and transcript themselves live on the registry
+// (which has the bytes); the local chain stores only hashes so it stays
+// compact and verifiable.
+const EvalRunInputSchema = z.object({
+  eval_id: z.string().min(1),
+  aspiration_sha256: z.string().regex(SHA256_HEX),
+  agent_skills_md_sha256: z.string().regex(SHA256_HEX),
+  model: z.string().min(1),
+});
+const EvalRunOutputSchema = z.object({
+  run_id: z.string().min(1),
+  // mark_pass is null when the eval had no mark_rubric — the run still
+  // recorded a transcript, but no pass/fail decision was made.
+  mark_pass: z.union([z.boolean(), z.null()]),
+  mark_rationale_sha256: z.union([z.string().regex(SHA256_HEX), z.null()]),
+  transcript_sha256: z.string().regex(SHA256_HEX),
+  registry_url: z.string().url(),
+});
+
+// Phase H — citation. Additive: schema_version stays at 1.
+//
+// A citation is the act of invoking an agent's SKILLS.md into a session. The
+// attribution is the moat: every cite is registered against a specific bind
+// hash so the registry can credit the agent author. The session_token the
+// server returns is the secret the citing process uses — we hash it before
+// recording so the local chain stays non-secret.
+const CiteInputSchema = z.object({
+  bind_hash: z.string().regex(SHA256_HEX),
+});
+const CiteOutputSchema = z.object({
+  session_token_sha256: z.string().regex(SHA256_HEX),
+  registry_url: z.string().url(),
+});
+
 const BaseEntryFieldsSchema = {
   schema_version: z.literal(PROVENANCE_SCHEMA_VERSION),
   seq: z.number().int().positive(),
@@ -100,11 +139,27 @@ export const AspirationAddedEntrySchema = z.object({
   output: AspirationAddedOutputSchema,
 });
 
+export const EvalRunEntrySchema = z.object({
+  ...BaseEntryFieldsSchema,
+  kind: z.literal('eval_run'),
+  input: EvalRunInputSchema,
+  output: EvalRunOutputSchema,
+});
+
+export const CiteEntrySchema = z.object({
+  ...BaseEntryFieldsSchema,
+  kind: z.literal('cite'),
+  input: CiteInputSchema,
+  output: CiteOutputSchema,
+});
+
 export const ProvenanceEntrySchema = z.discriminatedUnion('kind', [
   FeedEntrySchema,
   AgentCreatedEntrySchema,
   BoundEntrySchema,
   AspirationAddedEntrySchema,
+  EvalRunEntrySchema,
+  CiteEntrySchema,
 ]);
 
 // The set of `kind` values this build understands. Used by readChain to give
@@ -115,12 +170,16 @@ export const KNOWN_ENTRY_KINDS = [
   'agent_created',
   'bound',
   'aspiration_added',
+  'eval_run',
+  'cite',
 ] as const;
 
 export type FeedEntry = z.infer<typeof FeedEntrySchema>;
 export type AgentCreatedEntry = z.infer<typeof AgentCreatedEntrySchema>;
 export type BoundEntry = z.infer<typeof BoundEntrySchema>;
 export type AspirationAddedEntry = z.infer<typeof AspirationAddedEntrySchema>;
+export type EvalRunEntry = z.infer<typeof EvalRunEntrySchema>;
+export type CiteEntry = z.infer<typeof CiteEntrySchema>;
 export type ProvenanceEntry = z.infer<typeof ProvenanceEntrySchema>;
 
 export type EntryDraft =
@@ -146,6 +205,18 @@ export type EntryDraft =
       kind: 'aspiration_added';
       input: z.input<typeof AspirationAddedInputSchema>;
       output: z.input<typeof AspirationAddedOutputSchema>;
+      ts?: string;
+    }
+  | {
+      kind: 'eval_run';
+      input: z.input<typeof EvalRunInputSchema>;
+      output: z.input<typeof EvalRunOutputSchema>;
+      ts?: string;
+    }
+  | {
+      kind: 'cite';
+      input: z.input<typeof CiteInputSchema>;
+      output: z.input<typeof CiteOutputSchema>;
       ts?: string;
     };
 

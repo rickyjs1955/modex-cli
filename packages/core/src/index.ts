@@ -27,6 +27,17 @@ export { expandPatterns, type ExpandOptions } from './glob.js';
 
 export { MODEL_ID, SYSTEM_PROMPT, EMIT_SKILLS_TOOL } from './prompt.js';
 
+export {
+  executeEval,
+  EvalExecutionError,
+  MARK_SYSTEM_PROMPT,
+  EMIT_MARK_TOOL,
+  MarkSchema,
+  type Mark,
+  type EvalExecuteOptions,
+  type EvalExecutionResult,
+} from './evalExecute.js';
+
 export { parseSkills, ParseSkillsError } from './parseSkills.js';
 
 export { mergeSkills, type MergeResult } from './merge.js';
@@ -56,8 +67,13 @@ export {
   isAspirationsError,
   runEvalAdd,
   runEvalList,
+  runEvalRun,
+  runEvalResults,
   isEvalError,
   EvalError,
+  runCite,
+  isCiteError,
+  CiteError,
   isUserFacingError,
   type FeedOptions,
   type FeedResult,
@@ -78,6 +94,13 @@ export {
   type EvalAddResult,
   type EvalListOptions,
   type EvalListResult,
+  type EvalRunOptions,
+  type EvalRunResult,
+  type PerEvalRunResult,
+  type EvalResultsOptions,
+  type EvalResultsResult,
+  type CiteOptions,
+  type CiteResult,
 } from './operations/index.js';
 
 export { estimateTokens } from './tokenEstimate.js';
@@ -91,6 +114,8 @@ export {
   AgentCreatedEntrySchema,
   BoundEntrySchema,
   AspirationAddedEntrySchema,
+  EvalRunEntrySchema,
+  CiteEntrySchema,
   ProvenanceError,
   computeEntryHash,
   readChain,
@@ -101,6 +126,8 @@ export {
   type AgentCreatedEntry,
   type BoundEntry,
   type AspirationAddedEntry,
+  type EvalRunEntry,
+  type CiteEntry,
   type EntryDraft,
   type RecordEntryOptions,
 } from './provenance.js';
@@ -134,17 +161,27 @@ export {
   bindAgent,
   addAspiration,
   addEval,
+  cite,
   listEvals,
+  postEvalRun,
+  listEvalRuns,
   type DeviceCodeStart,
   type TokenResponse,
   type BindRequest,
   type BindResponse,
   type AspirationRequest,
   type AspirationResponse,
+  type CiteRequest,
+  type CiteResponse,
   type EvalAddRequest,
   type EvalAddResponse,
   type EvalListResponse,
   type EvalSummary,
+  type EvalRunRequest,
+  type EvalRunResponse,
+  type EvalRunSummary,
+  type EvalRunsListResponse,
+  type MarkPayload,
   type RegistryDeps,
   type PollDeps,
 } from './registry/index.js';

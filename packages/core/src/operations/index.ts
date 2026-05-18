@@ -48,16 +48,32 @@ export {
 export {
   runEvalAdd,
   runEvalList,
+  runEvalRun,
+  runEvalResults,
   isEvalError,
   EvalError,
   type EvalAddOptions,
   type EvalAddResult,
   type EvalListOptions,
   type EvalListResult,
+  type EvalRunOptions,
+  type EvalRunResult,
+  type PerEvalRunResult,
+  type EvalResultsOptions,
+  type EvalResultsResult,
 } from './evals.js';
+
+export {
+  runCite,
+  isCiteError,
+  CiteError,
+  type CiteOptions,
+  type CiteResult,
+} from './cite.js';
 
 import { isAspirationsError } from './aspirations.js';
 import { isBindError } from './bind.js';
+import { isCiteError } from './cite.js';
 import { isEvalError } from './evals.js';
 import { isFeedError } from './feed.js';
 import { isLoginError } from './login.js';
@@ -70,6 +86,7 @@ export function isUserFacingError(err: unknown): err is Error {
     isLoginError(err) ||
     isBindError(err) ||
     isAspirationsError(err) ||
-    isEvalError(err)
+    isEvalError(err) ||
+    isCiteError(err)
   );
 }

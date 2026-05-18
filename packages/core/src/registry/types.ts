@@ -108,3 +108,85 @@ export const EvalListResponseSchema = z
   })
   .passthrough();
 export type EvalListResponse = z.infer<typeof EvalListResponseSchema>;
+
+// --- Eval runs (Phase G) --------------------------------------------------
+//
+// Provisional. The CLI calls Anthropic locally (see chosen design in
+// CHANGELOG / NOTES.md) and POSTs the resulting transcript + mark to the
+// registry — the server is a passive recipient that stores outcomes for
+// substrate enrichment, not the orchestrator.
+//
+//   POST /v1/agents/{agent_id}/eval-runs  →  EvalRunResponse
+//   GET  /v1/agents/{agent_id}/eval-runs?eval_id=...  →  EvalRunsListResponse
+
+export const MarkPayloadSchema = z
+  .object({
+    pass: z.boolean(),
+    rationale: z.string().min(1).max(2000),
+  })
+  .passthrough();
+export type MarkPayload = z.infer<typeof MarkPayloadSchema>;
+
+export interface EvalRunRequest {
+  eval_id: string;
+  aspiration_sha256: string;
+  agent_skills_md_sha256: string;
+  model: string;
+  // null when the eval had no mark_rubric — the run still produced a
+  // transcript, but no pass/fail decision was made.
+  mark: MarkPayload | null;
+  // Full agent response if it fits under the cap; truncated with a marker
+  // line otherwise. The provenance chain stores transcript_sha256 for the
+  // un-truncated bytes.
+  transcript_excerpt: string;
+}
+
+export const EvalRunResponseSchema = z
+  .object({
+    run_id: z.string().min(1),
+    created_at: z.string().min(1).optional(),
+  })
+  .passthrough();
+export type EvalRunResponse = z.infer<typeof EvalRunResponseSchema>;
+
+export const EvalRunSummarySchema = z
+  .object({
+    run_id: z.string().min(1),
+    eval_id: z.string().min(1),
+    mark: z.union([MarkPayloadSchema, z.null()]).optional(),
+    transcript_excerpt: z.string().optional(),
+    created_at: z.string().min(1).optional(),
+  })
+  .passthrough();
+export type EvalRunSummary = z.infer<typeof EvalRunSummarySchema>;
+
+export const EvalRunsListResponseSchema = z
+  .object({
+    runs: z.array(EvalRunSummarySchema),
+  })
+  .passthrough();
+export type EvalRunsListResponse = z.infer<typeof EvalRunsListResponseSchema>;
+
+// --- Cite (Phase H) -------------------------------------------------------
+//
+// Provisional. `cite` registers an invocation of an agent's SKILLS.md at a
+// specific bind hash, and returns a session_token the caller uses to prove
+// attribution downstream. bind_hash is optional in the request — the server
+// defaults to the agent's latest bound snapshot — and is always echoed back
+// so the caller knows which snapshot was actually cited.
+//
+//   POST /v1/agents/{agent_id}/cite  →  CiteResponse
+
+export interface CiteRequest {
+  bind_hash?: string;
+}
+
+export const CiteResponseSchema = z
+  .object({
+    session_token: z.string().min(1),
+    // The snapshot the citation was registered against. When the client
+    // sends no bind_hash this tells us which one the server defaulted to.
+    bind_hash: z.string().min(1),
+  })
+  .passthrough();
+export type CiteResponse = z.infer<typeof CiteResponseSchema>;

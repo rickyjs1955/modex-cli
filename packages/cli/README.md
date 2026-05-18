@@ -42,10 +42,27 @@ can be evaled with it.
 modex eval add <aspiration-hash> --text "<prompt>" \
                                  --mark-rubric "<criteria>"
 modex eval list <aspiration-hash>
+
+# Execution: calls Anthropic on your machine (ANTHROPIC_API_KEY), marks the
+# response, POSTs the outcome to the registry, and records an `eval_run`
+# entry in the agent's provenance chain.
+modex eval run <agent-id> --aspiration <hash>     # run all evals on this aspiration
+modex eval run <agent-id> --eval-id <id>          # run a specific eval
+modex eval results <agent-id> [--eval-id <id>]    # past runs from the registry
 ```
 
 `eval add` and `eval list` are offline-safe (no provider tokens spent).
-Execution (`modex eval run`) lands in Phase G.
+`eval run` spends tokens on your `ANTHROPIC_API_KEY` and posts results back.
+
+## Citing
+
+```sh
+modex cite <agent-id>                          # cite the latest bind snapshot
+modex cite <agent-id> --bind-hash <sha256>     # cite a specific snapshot
+```
+
+The session token prints on its own labelled line (`session_token: ...`) for
+easy shell extraction. The local provenance entry stores only its sha256.
 
 All orchestration lives in [`@modexagents/core`](https://www.npmjs.com/package/@modexagents/core);
 this package is the terminal surface over it.
