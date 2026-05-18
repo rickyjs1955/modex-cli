@@ -4,12 +4,19 @@ export {
   TokenResponseSchema,
   BindResponseSchema,
   AspirationResponseSchema,
+  EvalAddResponseSchema,
+  EvalListResponseSchema,
+  EvalSummarySchema,
   type DeviceCodeStart,
   type TokenResponse,
   type BindRequest,
   type BindResponse,
   type AspirationRequest,
   type AspirationResponse,
+  type EvalAddRequest,
+  type EvalAddResponse,
+  type EvalListResponse,
+  type EvalSummary,
 } from './types.js';
 
 export {
@@ -17,6 +24,8 @@ export {
   pollForToken,
   bindAgent,
   addAspiration,
+  addEval,
+  listEvals,
   type RegistryDeps,
   type PollDeps,
 } from './client.js';

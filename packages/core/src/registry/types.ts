@@ -69,3 +69,42 @@ export const AspirationResponseSchema = z
   })
   .passthrough();
 export type AspirationResponse = z.infer<typeof AspirationResponseSchema>;
+
+// --- Evals ----------------------------------------------------------------
+//
+// Provisional contract — the registry side isn't built yet. See NOTES.md.
+//   POST /v1/aspirations/{hash}/evals  →  EvalAddResponse
+//   GET  /v1/aspirations/{hash}/evals  →  EvalListResponse
+// 404 means *either* "no such aspiration" *or* "this registry build doesn't
+// expose eval endpoints yet" — the body has no field that distinguishes the
+// two cases, so the client message has to mention both possibilities.
+
+export interface EvalAddRequest {
+  text: string;
+  mark_rubric?: string;
+}
+
+export const EvalAddResponseSchema = z
+  .object({
+    eval_id: z.string().min(1),
+    created_at: z.string().min(1).optional(),
+  })
+  .passthrough();
+export type EvalAddResponse = z.infer<typeof EvalAddResponseSchema>;
+
+export const EvalSummarySchema = z
+  .object({
+    eval_id: z.string().min(1),
+    text: z.string(),
+    mark_rubric: z.union([z.string(), z.null()]).optional(),
+    created_at: z.string().min(1).optional(),
+  })
+  .passthrough();
+export type EvalSummary = z.infer<typeof EvalSummarySchema>;
+
+export const EvalListResponseSchema = z
+  .object({
+    evals: z.array(EvalSummarySchema),
+  })
+  .passthrough();
+export type EvalListResponse = z.infer<typeof EvalListResponseSchema>;

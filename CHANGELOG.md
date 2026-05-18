@@ -4,6 +4,89 @@ All notable changes to `modex-cli` are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning will follow [SemVer](https://semver.org/) once we cut a release.
 
+## 0.5.0 — Phase F (eval verb arrives; aspirations get a list view)
+
+> Introduces the `eval` verb. An **eval** is a parent-defined probe of an
+> agent's behavior under a stated rubric — it attaches to an aspiration
+> (honesty, brevity, refusal-to-flatter, …) and can be shared across every
+> agent that pins that aspiration. The vocabulary commitment: in code,
+> prompts, help text, and docs the named thing is always "an eval" — not
+> "scenario," "test," or "evaluation."
+>
+> Phase F is the **offline-safe slice** — no provider tokens spent. Eval
+> *execution* lands in Phase G.
+
+### Added
+- `modex eval add <aspiration-hash> --text <prompt> [--mark-rubric <criteria>]`
+  registers an eval against an aspiration on the registry. The eval is
+  aspiration-scoped (not agent-scoped); any agent pinning that aspiration can
+  be evaled with it later. Requires `modex login`. Returns the server-assigned
+  `eval_id`.
+- `modex eval list <aspiration-hash>` lists evals registered against an
+  aspiration. One tab-separated line per eval (`eval_id`, `created_at`,
+  single-line prompt preview).
+- `modex aspirations list <agent-id>` prints the aspirations pinned to an
+  agent from the local provenance chain — one TSV line per
+  `aspiration_added` entry (`sha256`, `source`, `added_at`). Pure local read,
+  no network call; gives users a way to discover the aspiration hash they
+  need for `eval add`.
+- `addEval` / `listEvals` registry client functions in
+  `@modexagents/core` (`POST` / `GET /v1/aspirations/{hash}/evals`).
+  Bearer-auth on both today; `listEvals` could be relaxed to anonymous
+  reads later without a client change.
+- `runEvalAdd`, `runEvalList`, `runAspirationsList`, `isEvalError`, `EvalError`
+  in `core/operations`. Exported from `@modexagents/core`.
+- `NOTES.md` at the repo root tracking API-contract gaps the server side
+  hasn't resolved yet (404 ambiguity, mark-rubric format, local persistence
+  semantics, Phase G/H pre-flight items).
+
+### Changed
+- The Phase F design is **no local provenance** for `eval add` / `eval list`.
+  Evals attach to aspirations, not agents; there is no obvious local agent to
+  record provenance against. The local chain only gains an entry in Phase G's
+  `eval run`, which IS agent-scoped. See NOTES.md.
+- `@modexagents/cli` and `@modexagents/core` bumped 0.4.0 → 0.5.0.
+  `@modexagents/mcp` stays at 0.4.0 — Phase F adds CLI verbs only; Phase I
+  is where MCP gains tools for them.
+
+### Server contract (provisional — see NOTES.md)
+- A 404 from the eval endpoints is ambiguous (no such aspiration vs. registry
+  doesn't expose eval endpoints yet); the client error names both
+  possibilities. The server should disambiguate with a body code before
+  Phase G.
+- `--mark-rubric` is currently a free-text string — it'll need a schema
+  before Phase G can produce structured marks.
+
+## 0.4.0 — Phase E.5 (companion surfaces)
+
+> Bootstraps the two surfaces that Phase E forecast: an MCP server and a
+> GitHub Action. Both wrap `@modexagents/core` exactly like `@modexagents/cli`
+> does — no business logic in either, so all three surfaces stay in lockstep
+> by construction.
+
+### Added
+- **`@modexagents/mcp`** (new package). Stdio MCP server exposing one tool per
+  existing `run*` op: `modex_feed`, `modex_agents_create`, `modex_agents_list`,
+  `modex_bind`, `modex_aspirations_add`. Each tool returns the structured
+  result as JSON plus a captured transcript of what the CLI would have printed
+  to stdout/stderr. Errors that `isUserFacingError()` recognizes return as
+  `isError: true` tool responses; internal errors surface as protocol-level
+  failures. Login / logout are deliberately omitted — device-code auth is
+  interactive; users authenticate once via `modex login` in a real terminal
+  and this server reads the same `~/.config/modex/credentials.json`.
+- **`packages/github-action`** (new). Composite action wrapping the published
+  CLI. Inputs: `command`, `args`, `cli-version` (default `latest`),
+  `working-directory`, `anthropic-api-key`, `modex-token`,
+  `modex-registry-url`. The `modex-token` input materializes
+  `~/.config/modex/credentials.json` at the schema `modex login` produces, so
+  CI can call `bind` / `aspirations add` without the device-code flow.
+- Root README and CLI README updated to describe the three surfaces.
+
+### Changed
+- `@modexagents/cli` and `@modexagents/core` bumped 0.3.1 → 0.4.0 to keep
+  every package in the monorepo on the same release line as the new
+  `@modexagents/mcp`. No behavioral changes in either.
+
 ## 0.3.1 — Phase E (first published release)
 
 > **npm scope renamed `@mojax` → `@modexagents` (2026-05-15).** The package

@@ -11,7 +11,15 @@ describe('buildProgram', () => {
   it('registers the top-level commands', () => {
     const program = buildProgram();
     const names = program.commands.map((c) => c.name()).sort();
-    expect(names).toEqual(['agents', 'aspirations', 'bind', 'feed', 'login', 'logout']);
+    expect(names).toEqual([
+      'agents',
+      'aspirations',
+      'bind',
+      'eval',
+      'feed',
+      'login',
+      'logout',
+    ]);
   });
 
   it('wires the agents subcommands', () => {
@@ -20,10 +28,16 @@ describe('buildProgram', () => {
     expect(agents?.commands.map((c) => c.name()).sort()).toEqual(['create', 'list']);
   });
 
-  it('wires the aspirations subcommand', () => {
+  it('wires the aspirations subcommands', () => {
     const program = buildProgram();
     const aspirations = program.commands.find((c) => c.name() === 'aspirations');
-    expect(aspirations?.commands.map((c) => c.name())).toEqual(['add']);
+    expect(aspirations?.commands.map((c) => c.name()).sort()).toEqual(['add', 'list']);
+  });
+
+  it('wires the eval subcommands', () => {
+    const program = buildProgram();
+    const evalCmd = program.commands.find((c) => c.name() === 'eval');
+    expect(evalCmd?.commands.map((c) => c.name()).sort()).toEqual(['add', 'list']);
   });
 });
 

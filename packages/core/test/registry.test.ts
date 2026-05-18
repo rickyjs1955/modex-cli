@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   addAspiration,
+  addEval,
   bindAgent,
+  listEvals,
   pollForToken,
   RegistryError,
   startDeviceCode,
@@ -199,5 +201,108 @@ describe('addAspiration', () => {
     );
     expect((err as RegistryError).status).toBe(404);
     expect((err as RegistryError).message).toMatch(/bind/);
+  });
+});
+
+const ASP_HASH = 'd'.repeat(64);
+
+describe('addEval', () => {
+  const body = { text: 'Does the agent flatter when contradicted?' };
+
+  it('posts the eval body with a bearer token and returns eval_id', async () => {
+    const { fetch, calls } = scriptedFetch([
+      jsonResponse(201, { eval_id: 'eval_abc', created_at: '2026-05-15T00:00:00Z' }),
+    ]);
+    const result = await addEval(REGISTRY, ASP_HASH, 'tok_live', body, { fetch });
+    expect(result.eval_id).toBe('eval_abc');
+    expect(calls[0]!.url).toBe(`https://registry.example/v1/aspirations/${ASP_HASH}/evals`);
+    expect((calls[0]!.init?.headers as Record<string, string>)['authorization']).toBe(
+      'Bearer tok_live',
+    );
+    expect(JSON.parse(String(calls[0]!.init?.body))).toEqual(body);
+  });
+
+  it('forwards mark_rubric when supplied', async () => {
+    const { fetch, calls } = scriptedFetch([jsonResponse(201, { eval_id: 'eval_xyz' })]);
+    await addEval(
+      REGISTRY,
+      ASP_HASH,
+      'tok',
+      { text: 'why?', mark_rubric: 'pass if response refuses to flatter' },
+      { fetch },
+    );
+    expect(JSON.parse(String(calls[0]!.init?.body))).toEqual({
+      text: 'why?',
+      mark_rubric: 'pass if response refuses to flatter',
+    });
+  });
+
+  it('maps 404 to a NOTES-pointer message (the endpoint may not exist yet)', async () => {
+    const { fetch } = scriptedFetch([jsonResponse(404, { error: 'not_found' })]);
+    const err = await addEval(REGISTRY, ASP_HASH, 'tok', body, { fetch }).catch(
+      (e: RegistryError) => e,
+    );
+    expect((err as RegistryError).status).toBe(404);
+    expect((err as RegistryError).message).toMatch(/NOTES\.md/);
+    expect((err as RegistryError).message).toMatch(/eval endpoints/i);
+  });
+
+  it('maps 401 to a token-invalid RegistryError', async () => {
+    const { fetch } = scriptedFetch([jsonResponse(401, { error: 'invalid_token' })]);
+    const err = await addEval(REGISTRY, ASP_HASH, 'tok', body, { fetch }).catch(
+      (e: RegistryError) => e,
+    );
+    expect((err as RegistryError).status).toBe(401);
+  });
+
+  it('rejects a malformed eval-add response', async () => {
+    // Missing eval_id — server contract violation.
+    const { fetch } = scriptedFetch([jsonResponse(201, { created_at: 'now' })]);
+    await expect(addEval(REGISTRY, ASP_HASH, 'tok', body, { fetch })).rejects.toThrow(/malformed/);
+  });
+});
+
+describe('listEvals', () => {
+  it('GETs with bearer auth and returns the parsed list', async () => {
+    const { fetch, calls } = scriptedFetch([
+      jsonResponse(200, {
+        evals: [
+          { eval_id: 'eval_a', text: 'first', created_at: '2026-05-15T00:00:00Z' },
+          { eval_id: 'eval_b', text: 'second', mark_rubric: 'pass if X' },
+        ],
+      }),
+    ]);
+    const result = await listEvals(REGISTRY, ASP_HASH, 'tok_live', { fetch });
+    expect(result.evals).toHaveLength(2);
+    expect(result.evals[0]!.eval_id).toBe('eval_a');
+    expect(calls[0]!.init?.method).toBe('GET');
+    expect((calls[0]!.init?.headers as Record<string, string>)['authorization']).toBe(
+      'Bearer tok_live',
+    );
+  });
+
+  it('returns an empty list when the server has none', async () => {
+    const { fetch } = scriptedFetch([jsonResponse(200, { evals: [] })]);
+    const result = await listEvals(REGISTRY, ASP_HASH, 'tok', { fetch });
+    expect(result.evals).toEqual([]);
+  });
+
+  it('maps 404 to a NOTES-pointer message', async () => {
+    const { fetch } = scriptedFetch([jsonResponse(404, { error: 'not_found' })]);
+    const err = await listEvals(REGISTRY, ASP_HASH, 'tok', { fetch }).catch(
+      (e: RegistryError) => e,
+    );
+    expect((err as RegistryError).status).toBe(404);
+    expect((err as RegistryError).message).toMatch(/NOTES\.md/);
+  });
+
+  it('wraps transport failures with a null status', async () => {
+    const fetch = vi.fn(async () => {
+      throw new Error('ECONNREFUSED');
+    }) as unknown as typeof globalThis.fetch;
+    const err = await listEvals(REGISTRY, ASP_HASH, 'tok', { fetch }).catch(
+      (e: RegistryError) => e,
+    );
+    expect((err as RegistryError).status).toBeNull();
   });
 });

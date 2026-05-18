@@ -7,6 +7,11 @@ import {
   BindResponseSchema,
   type DeviceCodeStart,
   DeviceCodeStartSchema,
+  type EvalAddRequest,
+  type EvalAddResponse,
+  EvalAddResponseSchema,
+  type EvalListResponse,
+  EvalListResponseSchema,
   RegistryError,
   type TokenResponse,
   TokenResponseSchema,
@@ -62,6 +67,41 @@ async function postJson(
       headers,
       body: JSON.stringify(body),
     });
+  } catch (err) {
+    throw new RegistryError(
+      `Could not reach the registry at ${url}: ${(err as Error).message}`,
+      { status: null },
+    );
+  }
+
+  let json: unknown = null;
+  const text = await response.text();
+  if (text.length > 0) {
+    try {
+      json = JSON.parse(text);
+    } catch {
+      // Non-JSON body — leave json as null; caller decides based on status.
+    }
+  }
+  return { status: response.status, json };
+}
+
+// GET counterpart to postJson, used for read-only registry endpoints (eval
+// listing). Transport failures become RegistryError with a null status; HTTP
+// status is returned to the caller to interpret. We keep auth optional for
+// future-proofing — `listEvals` currently requires it, but a public-read
+// endpoint would slot in without a client change.
+async function getJson(
+  fetchImpl: typeof globalThis.fetch,
+  url: string,
+  token?: string,
+): Promise<PostResult> {
+  const headers: Record<string, string> = { accept: 'application/json' };
+  if (token) headers['authorization'] = `Bearer ${token}`;
+
+  let response: Response;
+  try {
+    response = await fetchImpl(url, { method: 'GET', headers });
   } catch (err) {
     throw new RegistryError(
       `Could not reach the registry at ${url}: ${(err as Error).message}`,
@@ -262,6 +302,103 @@ export async function addAspiration(
   if (!parsed.success) {
     throw new RegistryError(
       `Registry aspiration response was malformed: ${parsed.error.issues
+        .map((i) => `${i.path.join('.')}: ${i.message}`)
+        .join('; ')}`,
+      { status },
+    );
+  }
+  return parsed.data;
+}
+
+// --- Evals ----------------------------------------------------------------
+//
+// Provisional — the server endpoints aren't built yet. A 404 here is
+// ambiguous: the aspiration genuinely doesn't exist, OR this registry
+// build doesn't expose eval endpoints. The response body has no field that
+// distinguishes the two, so the error message mentions both possibilities
+// and points at NOTES.md for the current API contract status.
+
+const EVAL_404_MESSAGE =
+  'Registry returned 404. Either no aspiration exists at this hash, or this ' +
+  'registry build does not yet expose the eval endpoints. See NOTES.md ' +
+  '(top of repo) for the current API contract status.';
+
+export async function addEval(
+  registryUrl: string,
+  aspirationHash: string,
+  token: string,
+  body: EvalAddRequest,
+  deps?: RegistryDeps,
+): Promise<EvalAddResponse> {
+  const { fetch } = resolveDeps(deps);
+  const { status, json } = await postJson(
+    fetch,
+    endpoint(registryUrl, `/v1/aspirations/${encodeURIComponent(aspirationHash)}/evals`),
+    body,
+    token,
+  );
+
+  if (status === 401) {
+    throw new RegistryError('Your registry token is no longer valid.', {
+      status,
+      code: bodyErrorCode(json),
+    });
+  }
+  if (status === 404) {
+    throw new RegistryError(EVAL_404_MESSAGE, { status, code: bodyErrorCode(json) });
+  }
+  if (status < 200 || status >= 300) {
+    throw new RegistryError(`Registry rejected the eval (HTTP ${status}).`, {
+      status,
+      code: bodyErrorCode(json),
+    });
+  }
+
+  const parsed = EvalAddResponseSchema.safeParse(json);
+  if (!parsed.success) {
+    throw new RegistryError(
+      `Registry eval-add response was malformed: ${parsed.error.issues
+        .map((i) => `${i.path.join('.')}: ${i.message}`)
+        .join('; ')}`,
+      { status },
+    );
+  }
+  return parsed.data;
+}
+
+export async function listEvals(
+  registryUrl: string,
+  aspirationHash: string,
+  token: string,
+  deps?: RegistryDeps,
+): Promise<EvalListResponse> {
+  const { fetch } = resolveDeps(deps);
+  const { status, json } = await getJson(
+    fetch,
+    endpoint(registryUrl, `/v1/aspirations/${encodeURIComponent(aspirationHash)}/evals`),
+    token,
+  );
+
+  if (status === 401) {
+    throw new RegistryError('Your registry token is no longer valid.', {
+      status,
+      code: bodyErrorCode(json),
+    });
+  }
+  if (status === 404) {
+    throw new RegistryError(EVAL_404_MESSAGE, { status, code: bodyErrorCode(json) });
+  }
+  if (status < 200 || status >= 300) {
+    throw new RegistryError(`Registry rejected the eval list (HTTP ${status}).`, {
+      status,
+      code: bodyErrorCode(json),
+    });
+  }
+
+  const parsed = EvalListResponseSchema.safeParse(json);
+  if (!parsed.success) {
+    throw new RegistryError(
+      `Registry eval-list response was malformed: ${parsed.error.issues
         .map((i) => `${i.path.join('.')}: ${i.message}`)
         .join('; ')}`,
       { status },

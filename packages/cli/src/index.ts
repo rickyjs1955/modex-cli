@@ -3,7 +3,10 @@ import {
   runAgentsCreate,
   runAgentsList,
   runAspirationsAdd,
+  runAspirationsList,
   runBind,
+  runEvalAdd,
+  runEvalList,
   runFeed,
   runLogin,
   runLogout,
@@ -15,7 +18,7 @@ export function buildProgram(): Command {
   program
     .name('modex')
     .description('Author SKILLS.md from a corpus on your own machine.')
-    .version('0.3.1');
+    .version('0.5.0');
 
   program
     .command('feed')
@@ -87,6 +90,54 @@ export function buildProgram(): Command {
     .argument('<md-file>', 'Path to a markdown file describing the aspiration')
     .action(async (agentId: string, mdFile: string) => {
       await runAspirationsAdd(agentId, mdFile);
+    });
+
+  aspirations
+    .command('list')
+    .description('List the aspirations attached to an agent (local; reads provenance).')
+    .argument('<agent-id>', 'UUIDv7 of the agent')
+    .action(async (agentId: string) => {
+      await runAspirationsList(agentId);
+    });
+
+  const evalCmd = program
+    .command('eval')
+    .description(
+      'Author and inspect evals — parent-defined probes of an agent\'s behavior under a rubric.',
+    );
+
+  evalCmd
+    .command('add')
+    .description(
+      'Register an eval against an aspiration. Eval prompts attach to the aspiration (not a single agent) so any agent pinning that aspiration can be evaled with it.',
+    )
+    .argument(
+      '<aspiration-hash>',
+      'sha256 of the aspiration (see `modex aspirations list <agent-id>`)',
+    )
+    .requiredOption('--text <prompt>', 'The eval prompt — what the agent will be asked')
+    .option(
+      '--mark-rubric <criteria>',
+      'Optional rubric the eval-runner uses to mark the response',
+    )
+    .action(
+      async (
+        aspirationHash: string,
+        opts: { text: string; markRubric?: string },
+      ) => {
+        await runEvalAdd(aspirationHash, {
+          text: opts.text,
+          markRubric: opts.markRubric,
+        });
+      },
+    );
+
+  evalCmd
+    .command('list')
+    .description('List the evals registered against an aspiration.')
+    .argument('<aspiration-hash>', 'sha256 of the aspiration')
+    .action(async (aspirationHash: string) => {
+      await runEvalList(aspirationHash);
     });
 
   return program;

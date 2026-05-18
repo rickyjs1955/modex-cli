@@ -36,13 +36,29 @@ export {
 
 export {
   runAspirationsAdd,
+  runAspirationsList,
   isAspirationsError,
   type AspirationsAddOptions,
   type AspirationsAddResult,
+  type AspirationsListOptions,
+  type AspirationsListResult,
+  type AspirationSummary,
 } from './aspirations.js';
+
+export {
+  runEvalAdd,
+  runEvalList,
+  isEvalError,
+  EvalError,
+  type EvalAddOptions,
+  type EvalAddResult,
+  type EvalListOptions,
+  type EvalListResult,
+} from './evals.js';
 
 import { isAspirationsError } from './aspirations.js';
 import { isBindError } from './bind.js';
+import { isEvalError } from './evals.js';
 import { isFeedError } from './feed.js';
 import { isLoginError } from './login.js';
 
@@ -50,6 +66,10 @@ import { isLoginError } from './login.js';
 // (bad input, auth needed, registry rejection) rather than an internal crash.
 export function isUserFacingError(err: unknown): err is Error {
   return (
-    isFeedError(err) || isLoginError(err) || isBindError(err) || isAspirationsError(err)
+    isFeedError(err) ||
+    isLoginError(err) ||
+    isBindError(err) ||
+    isAspirationsError(err) ||
+    isEvalError(err)
   );
 }

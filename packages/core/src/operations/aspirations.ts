@@ -4,9 +4,18 @@ import { basename } from 'node:path';
 
 import { AgentError, loadAgent } from '../agent.js';
 import { clearCredentials, CredentialsError, loadCredentials } from '../credentials.js';
-import { ProvenanceError, recordEntry } from '../provenance.js';
+import {
+  type AspirationAddedEntry,
+  type ProvenanceEntry,
+  ProvenanceError,
+  readChain,
+  recordEntry,
+} from '../provenance.js';
 import { addAspiration, RegistryError } from '../registry/index.js';
 import { readRegistryState, RegistryStateError } from '../registryState.js';
+
+const isAspirationAdded = (e: ProvenanceEntry): e is AspirationAddedEntry =>
+  e.kind === 'aspiration_added';
 
 export interface AspirationsAddOptions {
   baseDir?: string;
@@ -131,4 +140,53 @@ export function isAspirationsError(err: unknown): err is Error {
     err instanceof ProvenanceError ||
     err instanceof RegistryStateError
   );
+}
+
+// --- aspirations list -----------------------------------------------------
+//
+// Local-only: reads the agent's provenance chain and emits one line per
+// `aspiration_added` entry. No registry call — the chain is the local source
+// of truth for what this agent has attached. (The registry has the same
+// information plus what other agents pinned, but answering "what did *I*
+// pin?" doesn't need a round trip.)
+
+export interface AspirationsListOptions {
+  baseDir?: string;
+  stdout?: NodeJS.WritableStream;
+}
+
+export interface AspirationSummary {
+  sha256: string;
+  source: string;
+  addedAt: string;
+}
+
+export interface AspirationsListResult {
+  agentId: string;
+  aspirations: AspirationSummary[];
+}
+
+export async function runAspirationsList(
+  agentId: string,
+  opts: AspirationsListOptions = {},
+): Promise<AspirationsListResult> {
+  const stdout = opts.stdout ?? process.stdout;
+  const agent = await loadAgent(agentId, opts.baseDir);
+
+  const chain = await readChain(agent.paths.provenanceFile);
+  const summaries: AspirationSummary[] = chain.filter(isAspirationAdded).map((e) => ({
+    sha256: e.input.aspiration_sha256,
+    source: e.input.source,
+    addedAt: e.ts,
+  }));
+
+  if (summaries.length === 0) {
+    stdout.write(`(no aspirations on ${agent.config.id})\n`);
+  } else {
+    for (const a of summaries) {
+      stdout.write(`${a.sha256}\t${a.source}\t${a.addedAt}\n`);
+    }
+  }
+
+  return { agentId: agent.config.id, aspirations: summaries };
 }

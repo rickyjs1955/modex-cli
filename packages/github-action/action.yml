@@ -1,0 +1,85 @@
+name: 'Modex'
+description: >-
+  Run a modex command (feed, bind, aspirations add, …) inside a GitHub workflow.
+  Wraps @modexagents/cli on top of Node 20.
+author: 'Modex'
+branding:
+  icon: 'book-open'
+  color: 'purple'
+
+inputs:
+  command:
+    description: >-
+      The modex subcommand to run (e.g. "feed", "bind", "aspirations add",
+      "agents list"). Required.
+    required: true
+  args:
+    description: >-
+      Additional arguments for the subcommand, as a single shell-quoted string
+      (e.g. "<agent-id> ./book.md ./papers/*.pdf").
+    required: false
+    default: ''
+  cli-version:
+    description: >-
+      Version of @modexagents/cli to install. Defaults to "latest". Pin to a
+      specific version for reproducible CI runs (e.g. "0.4.0").
+    required: false
+    default: 'latest'
+  working-directory:
+    description: >-
+      Directory to run modex in. The .modex/<agent-id>/ state must live here
+      (usually the repo root).
+    required: false
+    default: ${{ github.workspace }}
+  anthropic-api-key:
+    description: >-
+      Anthropic API key for commands that call the model (e.g. `feed`). Set
+      from a repository secret; never paste a literal key here.
+    required: false
+  modex-token:
+    description: >-
+      Pre-issued Modex registry token for commands that call the registry
+      (`bind`, `aspirations add`). Set from a repository secret. Equivalent to
+      the access_token field of ~/.config/modex/credentials.json — using this
+      input bypasses the device-code login flow, which is interactive and
+      can't run in CI.
+    required: false
+  modex-registry-url:
+    description: >-
+      Override the registry URL (default: https://registry.modex.md). Only
+      meaningful when `modex-token` is supplied.
+    required: false
+    default: 'https://registry.modex.md'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install @modexagents/cli
+      shell: bash
+      run: npm install -g @modexagents/cli@${{ inputs.cli-version }}
+
+    - name: Materialize Modex credentials
+      if: inputs.modex-token != ''
+      shell: bash
+      env:
+        MODEX_TOKEN: ${{ inputs.modex-token }}
+        MODEX_REGISTRY_URL: ${{ inputs.modex-registry-url }}
+      run: |
+        set -euo pipefail
+        dir="${XDG_CONFIG_HOME:-$HOME/.config}/modex"
+        mkdir -p "$dir"
+        chmod 700 "$dir"
+        file="$dir/credentials.json"
+        # Match the schema produced by `modex login` (see core/src/credentials.ts).
+        printf '{\n  "schema_version": 1,\n  "access_token": %s,\n  "registry_url": %s\n}\n' \
+          "$(printf '%s' "$MODEX_TOKEN" | jq -Rs .)" \
+          "$(printf '%s' "$MODEX_REGISTRY_URL" | jq -Rs .)" \
+          > "$file"
+        chmod 600 "$file"
+
+    - name: Run modex
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+      run: modex ${{ inputs.command }} ${{ inputs.args }}
